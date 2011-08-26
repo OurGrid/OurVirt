@@ -1,13 +1,19 @@
 package org.ourgrid.virt;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class Main {
 
 	public static void main(String[] args) throws Exception {
 		OurVirt ourVirt = new OurVirt();
 		
-		ourVirt.start(Hypervisor.VBOX, "abmar-vm");
-		Thread.sleep(30000L);
-		ourVirt.stop(Hypervisor.VBOX, "abmar-vm");
+		Map<String, String> conf = new HashMap<String, String>();
+		conf.put("user", "worker");
+		conf.put("password", "worker");
+		
+		ourVirt.create(HypervisorType.VBOX, "abmar-vm", null, conf);
+		ourVirt.start(HypervisorType.VBOX, "abmar-vm");
 	}
 	
 }

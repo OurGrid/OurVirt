@@ -1,6 +1,6 @@
 package org.ourgrid.virt;
 
-public enum Hypervisor {
+public enum HypervisorType {
 
 	VBOX, VSERVER
 	
