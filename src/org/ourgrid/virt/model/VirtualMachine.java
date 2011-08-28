@@ -1,4 +1,4 @@
-package org.ourgrid.virt;
+package org.ourgrid.virt.model;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,4 +39,11 @@ public class VirtualMachine {
 		this.configuration.putAll(configuration);
 	}
 
+	public void setProperty(String property, String value) {
+		this.configuration.put(property, value);
+	}
+
+	public String getProperty(String property) {
+		return this.configuration.get(property);
+	}
 }

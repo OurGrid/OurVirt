@@ -3,7 +3,8 @@ package org.ourgrid.virt.strategies;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.ourgrid.virt.HypervisorType;
+import org.ourgrid.virt.model.HypervisorType;
+import org.ourgrid.virt.strategies.vbox.VBoxStrategy;
 
 public class HypervisorStrategyFactory {
 

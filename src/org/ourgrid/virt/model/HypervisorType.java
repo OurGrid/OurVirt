@@ -1,4 +1,4 @@
-package org.ourgrid.virt;
+package org.ourgrid.virt.model;
 
 public enum HypervisorType {
 

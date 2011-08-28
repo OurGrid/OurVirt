@@ -1,9 +1,11 @@
-package org.ourgrid.virt;
+package org.ourgrid.virt.model;
 
 import java.util.List;
 
 public class ExecutionResult {
 
+	public static final int OK = 0;
+	
 	private int returnValue;
 	private List<String> stdOut;
 	private List<String> stdErr;
