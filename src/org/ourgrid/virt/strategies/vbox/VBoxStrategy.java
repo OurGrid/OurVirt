@@ -4,7 +4,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Random;
 
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
@@ -32,29 +31,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 		}
 		
 		String imagePath = virtualMachine.getProperty("diskimagepath");
-		
-		boolean attached = attachDisk(virtualMachine, imagePath);
-		
-		if (attached) {
-			return;
-		}
-		
-		long randomId = Math.abs(new Random().nextLong());
-
-		String diskName = "/tmp/disk-" + randomId + ".vdi";
-		clone(virtualMachine, imagePath, diskName);
-		attachDisk(virtualMachine, diskName);
-
-		virtualMachine.setProperty("tmpdisk", diskName);
-	}
-
-	private void clone(VirtualMachine virtualMachine, String sourceDisk, String targetDisk)
-			throws Exception {
-		
-		
-		ProcessBuilder cloneHDBuilder = getProcessBuilder(
-				"clonehd \"" + sourceDisk + "\" " + targetDisk + "");
-		HypervisorUtils.runAndCheckProcess(cloneHDBuilder);
+		attachDisk(virtualMachine, imagePath);
 	}
 
 	/**
