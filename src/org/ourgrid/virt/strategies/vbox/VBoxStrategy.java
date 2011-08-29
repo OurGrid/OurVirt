@@ -2,21 +2,27 @@ package org.ourgrid.virt.strategies.vbox;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
+import org.ourgrid.virt.model.VirtualMachineConstants;
 import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class VBoxStrategy implements HypervisorStrategy {
 
 	private static final String FILE_ERROR = "VBOX_E_FILE_ERROR";
 	private static final String OBJECT_IN_USE = "VBOX_E_OBJECT_IN_USE";
 	private static final String INVALID_ARG = "E_INVALIDARG";
-	private static final String E_FAIL = "E_FAIL";
 	
 	private static final String DISK_CONTROLLER_NAME = "Disk Controller";
 	
@@ -30,22 +36,21 @@ public class VBoxStrategy implements HypervisorStrategy {
 			return;
 		}
 		
-		String imagePath = virtualMachine.getProperty("diskimagepath");
+		String imagePath = virtualMachine.getProperty(
+				VirtualMachineConstants.DISK_IMAGE_PATH);
 		attachDisk(virtualMachine, imagePath);
 	}
 
 	/**
-	 * Returns true if disk was successfully attached. 
-	 * Returns false if the disk is already attached.
 	 * Throws an exception if the disk could not be attached
-	 * for any other reason.
+	 * for any reason.
 	 * 
 	 * @param virtualMachine
 	 * @param diskPath
 	 * @return
 	 * @throws Exception
 	 */
-	private boolean attachDisk(VirtualMachine virtualMachine, String diskPath) 
+	private void attachDisk(VirtualMachine virtualMachine, String diskPath) 
 			throws Exception {
 		
 		if (!new File(diskPath).exists()) {
@@ -57,23 +62,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 				" --storagectl \"" + DISK_CONTROLLER_NAME + "\" --medium \"" + diskPath + 
 				"\" --port 0 --device 0 --type hdd");
 		
-		ExecutionResult runProcess = HypervisorUtils.runProcess(attachMediaBuilder);
-		String stdErr = runProcess.getStdErr().toString();
-		
-		if (runProcess.getReturnValue() != ExecutionResult.OK) {
-			
-			if (stdErr.contains(E_FAIL)) {
-				return false;
-			}
-			
-			if (stdErr.contains(E_FAIL)) {
-				return false;
-			}
-			
-			throw new Exception(stdErr);
-		}
-		return true;
-		
+		HypervisorUtils.runAndCheckProcess(attachMediaBuilder);
 	}
 
 	/**
@@ -91,8 +80,10 @@ public class VBoxStrategy implements HypervisorStrategy {
 	private boolean define(VirtualMachine virtualMachine)
 			throws Exception {
 		
-		String memory = virtualMachine.getProperty("memory");
-		String diskType = virtualMachine.getProperty("disktype");
+		String memory = virtualMachine.getProperty(
+				VirtualMachineConstants.MEMORY);
+		String diskType = virtualMachine.getProperty(
+				VirtualMachineConstants.DISK_TYPE);
 		
 		ProcessBuilder modifyVMBuilder = getProcessBuilder(
 				"modifyvm " + virtualMachine.getName() + " --memory " + memory + 
@@ -126,7 +117,8 @@ public class VBoxStrategy implements HypervisorStrategy {
 	private void register(VirtualMachine virtualMachine)
 			throws Exception {
 		
-		String os = virtualMachine.getProperty("osversion");
+		String os = virtualMachine.getProperty(
+				VirtualMachineConstants.OS_VERSION);
 		
 		ProcessBuilder createProcessBuilder = getProcessBuilder(
 				"createvm --name " + virtualMachine.getName() + " --register --ostype " + os);
@@ -143,6 +135,33 @@ public class VBoxStrategy implements HypervisorStrategy {
 	
 	@Override
 	public void start(VirtualMachine virtualMachine) throws Exception {
+		startVirtualMachine(virtualMachine);
+		checkOSStarted(virtualMachine);
+		mountSharedFolders(virtualMachine);
+	}
+
+	private void mountSharedFolders(VirtualMachine virtualMachine) throws Exception {
+		
+		String sharedFolders = virtualMachine.getProperty(
+				VirtualMachineConstants.SHARED_FOLDERS);
+		
+		if (sharedFolders == null) {
+			return;
+		}
+		
+		JsonArray sharedFoldersJson = (JsonArray) new JsonParser().parse(sharedFolders);
+		
+		for (int i = 0; i < sharedFoldersJson.size(); i++) {
+			JsonObject sharedFolderJson = (JsonObject) sharedFoldersJson.get(i);
+			String name = sharedFolderJson.get("name").getAsString();
+			String guestPath = sharedFolderJson.get("guestPath").getAsString();
+			exec(virtualMachine, 
+					"mount -t vboxsf " + name + " " + guestPath);
+		}
+	}
+
+	private void startVirtualMachine(VirtualMachine virtualMachine)
+			throws IOException, Exception {
 		
 		if (HypervisorUtils.isWindowsHost()) {
 			ProcessBuilder vbsProcessBuilder = new ProcessBuilder("wscript", 
@@ -161,8 +180,10 @@ public class VBoxStrategy implements HypervisorStrategy {
 					"startvm " + virtualMachine.getName() + " --type headless");
 			HypervisorUtils.runAndCheckProcess(startProcessBuilder, "successfully started");
 		}
-		
-		
+	}
+
+	private void checkOSStarted(VirtualMachine virtualMachine)
+			throws InterruptedException {
 		while (true) {
 			try {
 				ExecutionResult executionResult = exec(
@@ -191,8 +212,10 @@ public class VBoxStrategy implements HypervisorStrategy {
 	@Override
 	public ExecutionResult exec(VirtualMachine virtualMachine, String command) throws Exception {
 		
-		String user = virtualMachine.getConfiguration().get("user");
-		String password = virtualMachine.getConfiguration().get("password");
+		String user = virtualMachine.getConfiguration().get(
+				VirtualMachineConstants.GUEST_USER);
+		String password = virtualMachine.getConfiguration().get(
+				VirtualMachineConstants.GUEST_PASSWORD);
 		
 		String[] splittedCommand = command.split(" ");
 		
@@ -238,14 +261,6 @@ public class VBoxStrategy implements HypervisorStrategy {
 		ProcessBuilder destroyProcessBuilder = getProcessBuilder(
 				"unregistervm " + virtualMachine.getName() + " --delete");
 		HypervisorUtils.runAndCheckProcess(destroyProcessBuilder);
-		
-		String tmpDisk = virtualMachine.getConfiguration().get("tmpdisk");
-		if (tmpDisk != null) {
-			File tmpDiskFile = new File(tmpDisk);
-			if (tmpDiskFile.exists()) {
-				tmpDiskFile.delete();
-			}
-		}
 	}
 	
 	private static ProcessBuilder getProcessBuilder(String cmd) {
@@ -269,7 +284,34 @@ public class VBoxStrategy implements HypervisorStrategy {
 	@Override
 	public void createSharedFolder(VirtualMachine virtualMachine,
 			String hostPath, String guestPath) throws Exception {
+		UUID uuid = UUID.randomUUID();
 		
+		ProcessBuilder versionProcessBuilder = getProcessBuilder(
+				"sharedfolder add \"" + virtualMachine.getName() + 
+				"\" --name \"" + uuid.toString() + 
+				"\" --hostpath \"" + hostPath + "\" --transient");
+		HypervisorUtils.runAndCheckProcess(versionProcessBuilder);
+		
+		String sharedFolders = virtualMachine.getProperty(
+				VirtualMachineConstants.SHARED_FOLDERS);
+		JsonArray sharedFoldersArray = null;
+		
+		if (sharedFolders == null) {
+			sharedFoldersArray = new JsonArray();
+		} else {
+			sharedFoldersArray = (JsonArray) new JsonParser().parse(sharedFolders);
+		}
+		
+		JsonObject sfObject = new JsonObject();
+		sfObject.addProperty("name", uuid.toString());
+		sfObject.addProperty("hostpath", hostPath);
+		sfObject.addProperty("guestpath", guestPath);
+		
+		sharedFoldersArray.add(sfObject);
+		
+		virtualMachine.setProperty(
+				VirtualMachineConstants.SHARED_FOLDERS, 
+				sfObject.getAsString());
 	}
 
 	private List<String> list(boolean onlyRunning) throws Exception {

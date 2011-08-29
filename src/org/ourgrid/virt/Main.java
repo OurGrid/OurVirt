@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.HypervisorType;
+import org.ourgrid.virt.model.VirtualMachineConstants;
 
 public class Main {
 
@@ -20,13 +21,13 @@ public class Main {
 		String vmName = "abmar-vm-server";
 		
 		Map<String, String> conf = new HashMap<String, String>();
-		conf.put("user", "worker");
-		conf.put("password", "worker");
-		conf.put("memory", "512");
-		conf.put("os", "Linux");
-		conf.put("osversion", "Ubuntu");
-		conf.put("disktype", "sata");
-		conf.put("diskimagepath", 
+		conf.put(VirtualMachineConstants.GUEST_USER, "worker");
+		conf.put(VirtualMachineConstants.GUEST_PASSWORD, "worker");
+		conf.put(VirtualMachineConstants.MEMORY, "512");
+		conf.put(VirtualMachineConstants.OS, "Linux");
+		conf.put(VirtualMachineConstants.OS_VERSION, "Ubuntu");
+		conf.put(VirtualMachineConstants.DISK_TYPE, "sata");
+		conf.put(VirtualMachineConstants.DISK_IMAGE_PATH, 
 				"C:\\Users\\Abmar\\VirtualBox VMs\\abmar-vm-server\\abmar-vm-server.vdi");
 		
 		ourVirt.register(vmName, conf);
