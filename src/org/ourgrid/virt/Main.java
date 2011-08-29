@@ -29,7 +29,7 @@ public class Main {
 		conf.put("diskimagepath", 
 				"C:\\Users\\Abmar\\VirtualBox VMs\\abmar-vm-server\\abmar-vm-server.vdi");
 		
-		ourVirt.register(HypervisorType.VBOX, vmName, conf);
+		ourVirt.register(vmName, conf);
 		
 		ourVirt.create(HypervisorType.VBOX, vmName);
 		ourVirt.start(HypervisorType.VBOX, vmName);

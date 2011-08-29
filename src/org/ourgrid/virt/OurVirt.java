@@ -15,7 +15,7 @@ public class OurVirt {
 	private Map<String, VirtualMachine> vMCache = new HashMap<String, VirtualMachine>();
 	private HypervisorStrategyFactory factory = new HypervisorStrategyFactory();
 	
-	public void register(HypervisorType hypervisor, String vmName, Map<String, String> configuration) {
+	public void register(String vmName, Map<String, String> configuration) {
 		VirtualMachine vm = new VirtualMachine(vmName);
 		vm.setConfiguration(configuration);
 		vMCache.put(vmName, vm);
