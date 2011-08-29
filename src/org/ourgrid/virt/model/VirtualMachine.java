@@ -6,12 +6,10 @@ import java.util.Map;
 public class VirtualMachine {
 
 	private String name;
-	private String imagePath;
 	private Map<String, String> configuration = new HashMap<String, String>();
 
-	public VirtualMachine(String name, String imagePath) {
+	public VirtualMachine(String name) {
 		this.name = name;
-		this.imagePath = imagePath;
 	}
 
 	public String getName() {
@@ -20,14 +18,6 @@ public class VirtualMachine {
 
 	public void setName(String name) {
 		this.name = name;
-	}
-
-	public String getImagePath() {
-		return imagePath;
-	}
-
-	public void setImagePath(String imagePath) {
-		this.imagePath = imagePath;
 	}
 
 	public Map<String, String> getConfiguration() {

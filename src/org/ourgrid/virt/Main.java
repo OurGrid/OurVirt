@@ -9,18 +9,27 @@ import org.ourgrid.virt.model.HypervisorType;
 public class Main {
 
 	public static void main(String[] args) throws Exception {
-		String vmName = "abmar-vm-server";
-		
 		OurVirt ourVirt = new OurVirt();
+		
+		System.out.println(ourVirt.isSupported(HypervisorType.VBOX));
+		System.out.println(ourVirt.list(HypervisorType.VBOX));
+		runVmServer(ourVirt);
+	}
+
+	private static void runVmServer(OurVirt ourVirt) throws Exception {
+		String vmName = "abmar-vm-server";
 		
 		Map<String, String> conf = new HashMap<String, String>();
 		conf.put("user", "worker");
 		conf.put("password", "worker");
 		conf.put("memory", "512");
-		conf.put("os", "Ubuntu");
+		conf.put("os", "Linux");
+		conf.put("osversion", "Ubuntu");
+		conf.put("disktype", "sata");
+		conf.put("diskimagepath", 
+				"C:\\Users\\Abmar\\VirtualBox VMs\\abmar-vm-server\\abmar-vm-server.vdi");
 		
-		ourVirt.register(HypervisorType.VBOX, vmName, 
-				"C:\\Users\\Abmar\\VirtualBox VMs\\abmar-vm-server.vdi", conf);
+		ourVirt.register(HypervisorType.VBOX, vmName, conf);
 		
 		ourVirt.create(HypervisorType.VBOX, vmName);
 		ourVirt.start(HypervisorType.VBOX, vmName);
@@ -29,7 +38,7 @@ public class Main {
 		System.out.println(exec.getStdOut().toString());
 		
 		ourVirt.stop(HypervisorType.VBOX, vmName);
-		ourVirt.destroy(HypervisorType.VBOX, vmName);
+//		ourVirt.destroy(HypervisorType.VBOX, vmName);
 	}
 	
 }

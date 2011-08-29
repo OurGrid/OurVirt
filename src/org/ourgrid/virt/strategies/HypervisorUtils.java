@@ -126,7 +126,6 @@ public class HypervisorUtils {
 	}
 
 	public static boolean isWindowsHost() {
-		String osName = System.getProperty("os.name");
-		return osName.toLowerCase().contains("windows");
+		return System.getProperty("os.name").toLowerCase().contains("windows");
 	}
 }

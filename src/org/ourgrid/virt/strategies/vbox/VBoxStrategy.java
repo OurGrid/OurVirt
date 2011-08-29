@@ -1,19 +1,25 @@
 package org.ourgrid.virt.strategies.vbox;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Random;
 
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
+import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
 
 public class VBoxStrategy implements HypervisorStrategy {
 
-	private static final String VM_ALREADY_CREATED = "VBOX_E_FILE_ERROR";
-	private static final String CONTROLLER_EXISTS = "VBOX_E_OBJECT_IN_USE";
-	private static final String DISK_INVALID_ARG = "E_INVALIDARG";
-	private static final String DISK_ATTACH_FAIL = "E_FAIL";
+	private static final String FILE_ERROR = "VBOX_E_FILE_ERROR";
+	private static final String OBJECT_IN_USE = "VBOX_E_OBJECT_IN_USE";
+	private static final String INVALID_ARG = "E_INVALIDARG";
+	private static final String E_FAIL = "E_FAIL";
+	
+	private static final String DISK_CONTROLLER_NAME = "Disk Controller";
 	
 	@Override
 	public void create(VirtualMachine virtualMachine) throws Exception {
@@ -25,7 +31,9 @@ public class VBoxStrategy implements HypervisorStrategy {
 			return;
 		}
 		
-		boolean attached = attachDisk(virtualMachine, virtualMachine.getImagePath());
+		String imagePath = virtualMachine.getProperty("diskimagepath");
+		
+		boolean attached = attachDisk(virtualMachine, imagePath);
 		
 		if (attached) {
 			return;
@@ -34,44 +42,80 @@ public class VBoxStrategy implements HypervisorStrategy {
 		long randomId = Math.abs(new Random().nextLong());
 
 		String diskName = "/tmp/disk-" + randomId + ".vdi";
-		clone(virtualMachine, diskName);
+		clone(virtualMachine, imagePath, diskName);
 		attachDisk(virtualMachine, diskName);
 
-		virtualMachine.setProperty("tmp-disk", diskName);
+		virtualMachine.setProperty("tmpdisk", diskName);
 	}
 
-	private void clone(VirtualMachine virtualMachine, String diskName)
+	private void clone(VirtualMachine virtualMachine, String sourceDisk, String targetDisk)
 			throws Exception {
+		
+		
 		ProcessBuilder cloneHDBuilder = getProcessBuilder(
-				"clonehd \"" + virtualMachine.getImagePath() + "\" " + diskName + "");
+				"clonehd \"" + sourceDisk + "\" " + targetDisk + "");
 		HypervisorUtils.runAndCheckProcess(cloneHDBuilder);
 	}
 
-	private boolean attachDisk(VirtualMachine virtualMachine, String diskName) 
+	/**
+	 * Returns true if disk was successfully attached. 
+	 * Returns false if the disk is already attached.
+	 * Throws an exception if the disk could not be attached
+	 * for any other reason.
+	 * 
+	 * @param virtualMachine
+	 * @param diskPath
+	 * @return
+	 * @throws Exception
+	 */
+	private boolean attachDisk(VirtualMachine virtualMachine, String diskPath) 
 			throws Exception {
+		
+		if (!new File(diskPath).exists()) {
+			throw new FileNotFoundException("The image file does not exist: " + diskPath);
+		}
+		
 		ProcessBuilder attachMediaBuilder = getProcessBuilder(
 				"storageattach " + virtualMachine.getName() +  
-				" --storagectl \"SATA Controller\" --medium \"" + diskName + 
+				" --storagectl \"" + DISK_CONTROLLER_NAME + "\" --medium \"" + diskPath + 
 				"\" --port 0 --device 0 --type hdd");
 		
 		ExecutionResult runProcess = HypervisorUtils.runProcess(attachMediaBuilder);
 		String stdErr = runProcess.getStdErr().toString();
 		
-		if (runProcess.getReturnValue() == 0) {
-			return true;
-		} else {
-			if (stdErr.contains(DISK_INVALID_ARG) || stdErr.contains(DISK_ATTACH_FAIL)) {
+		if (runProcess.getReturnValue() != ExecutionResult.OK) {
+			
+			if (stdErr.contains(E_FAIL)) {
 				return false;
 			}
+			
+			if (stdErr.contains(E_FAIL)) {
+				return false;
+			}
+			
+			throw new Exception(stdErr);
 		}
+		return true;
 		
-		throw new Exception(stdErr);
 	}
 
+	/**
+	 * Returns true if controller with name 'SATA Controller' was defined, 
+	 * or if a controller with this name already exists. Returns false if
+	 * a controller of the type SATA is already defined.
+	 * 
+	 * Throws an exception if the controller could not be defined 
+	 * for any other reason.
+	 * 
+	 * @param virtualMachine
+	 * @return
+	 * @throws Exception
+	 */
 	private boolean define(VirtualMachine virtualMachine)
 			throws Exception {
 		
 		String memory = virtualMachine.getProperty("memory");
+		String diskType = virtualMachine.getProperty("disktype");
 		
 		ProcessBuilder modifyVMBuilder = getProcessBuilder(
 				"modifyvm " + virtualMachine.getName() + " --memory " + memory + 
@@ -79,20 +123,20 @@ public class VBoxStrategy implements HypervisorStrategy {
 		HypervisorUtils.runAndCheckProcess(modifyVMBuilder);
 		
 		ProcessBuilder createControllerBuilder = getProcessBuilder(
-				"storagectl " + virtualMachine.getName() + " --name \"SATA Controller\" --add sata");
+				"storagectl " + virtualMachine.getName() + " --name \"" + DISK_CONTROLLER_NAME + "\" --add " + diskType);
 		ExecutionResult createControllerResult = HypervisorUtils.runProcess(createControllerBuilder);
 		
 		String stdErr = createControllerResult.getStdErr().toString();
 		
 		if (createControllerResult.getReturnValue() != ExecutionResult.OK) {
 			
-			// Controller exists
-			if (stdErr.contains(CONTROLLER_EXISTS)) {
+			// Controller with this name already exists
+			if (stdErr.contains(OBJECT_IN_USE)) {
 				return true;
 			}
 			
 			// VM already has a SATA controller with different name
-			if (stdErr.contains(DISK_INVALID_ARG)) {
+			if (stdErr.contains(INVALID_ARG)) {
 				return false;
 			}
 			
@@ -105,7 +149,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 	private void register(VirtualMachine virtualMachine)
 			throws Exception {
 		
-		String os = virtualMachine.getProperty("os");
+		String os = virtualMachine.getProperty("osversion");
 		
 		ProcessBuilder createProcessBuilder = getProcessBuilder(
 				"createvm --name " + virtualMachine.getName() + " --register --ostype " + os);
@@ -114,7 +158,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 		String stdErr = createExecutionResult.getStdErr().toString();
 		
 		if (createExecutionResult.getReturnValue() != ExecutionResult.OK
-				&& !stdErr.contains(VM_ALREADY_CREATED)) {
+				&& !stdErr.contains(FILE_ERROR)) {
 			throw new Exception(stdErr);
 		}
 		
@@ -132,7 +176,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 					HypervisorUtils.runProcess(vbsProcessBuilder);
 			
 			if (vbsExecutionResult.getReturnValue() != 0) {
-				throw new Exception();
+				throw new Exception("Could not start VM");
 			}
 			
 		} else {
@@ -218,9 +262,12 @@ public class VBoxStrategy implements HypervisorStrategy {
 				"unregistervm " + virtualMachine.getName() + " --delete");
 		HypervisorUtils.runAndCheckProcess(destroyProcessBuilder);
 		
-		String tmpDisk = virtualMachine.getConfiguration().get("tmp-disk");
+		String tmpDisk = virtualMachine.getConfiguration().get("tmpdisk");
 		if (tmpDisk != null) {
-			new File(tmpDisk).delete();
+			File tmpDiskFile = new File(tmpDisk);
+			if (tmpDiskFile.exists()) {
+				tmpDiskFile.delete();
+			}
 		}
 	}
 	
@@ -245,8 +292,59 @@ public class VBoxStrategy implements HypervisorStrategy {
 	@Override
 	public void createSharedFolder(VirtualMachine virtualMachine,
 			String hostPath, String guestPath) throws Exception {
-		// TODO Auto-generated method stub
 		
+	}
+
+	private List<String> list(boolean onlyRunning) throws Exception {
+		
+		ProcessBuilder listBuilder = getProcessBuilder(
+				"list " + (onlyRunning ? "runningvms" : "vms"));
+		ExecutionResult listResult = HypervisorUtils.runProcess(listBuilder);
+		
+		if (listResult.getReturnValue() != ExecutionResult.OK) {
+			throw new Exception(listResult.getStdErr().toString());
+		}
+		
+		List<String> vmsOutput = listResult.getStdOut();
+		List<String> vms = new LinkedList<String>();
+		
+		for (String vmOutputted : vmsOutput) {
+			vms.add(vmOutputted.substring(
+					vmOutputted.indexOf("\"") + 1, vmOutputted.lastIndexOf("\"")));
+		}
+		
+		return vms;
+	}
+	
+	@Override
+	public List<String> list() throws Exception {
+		return list(false);
+	}
+
+	@Override
+	public boolean isSupported() {
+		try {
+			ProcessBuilder versionProcessBuilder = getProcessBuilder("--version");
+			HypervisorUtils.runAndCheckProcess(versionProcessBuilder);
+			return true;
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+	@Override
+	public VirtualMachineStatus status(VirtualMachine virtualMachine)
+			throws Exception {
+		
+		if (list(true).contains(virtualMachine.getName())) {
+			return VirtualMachineStatus.RUNNING;
+		}
+		
+		if (list(false).contains(virtualMachine.getName())) {
+			return VirtualMachineStatus.POWERED_OFF;
+		}
+		
+		return VirtualMachineStatus.NOT_REGISTERED;
 	}
 
 }
