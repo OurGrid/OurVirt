@@ -32,6 +32,9 @@ public class Main {
 		
 		ourVirt.register(vmName, conf);
 		
+		System.out.println(ourVirt.listSnapshots(HypervisorType.VBOX, vmName));
+		System.out.println(ourVirt.listSharedFolders(HypervisorType.VBOX, vmName));
+		
 		ourVirt.create(HypervisorType.VBOX, vmName);
 		ourVirt.start(HypervisorType.VBOX, vmName);
 		
@@ -39,7 +42,7 @@ public class Main {
 		System.out.println(exec.getStdOut().toString());
 		
 		ourVirt.stop(HypervisorType.VBOX, vmName);
-//		ourVirt.destroy(HypervisorType.VBOX, vmName);
+		ourVirt.destroy(HypervisorType.VBOX, vmName);
 	}
 	
 }

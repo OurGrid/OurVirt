@@ -13,6 +13,8 @@ import java.util.concurrent.TimeoutException;
 
 import org.apache.commons.io.IOUtils;
 import org.ourgrid.virt.model.ExecutionResult;
+import org.ourgrid.virt.model.VirtualMachine;
+import org.ourgrid.virt.model.VirtualMachineConstants;
 
 public class HypervisorUtils {
 
@@ -75,10 +77,10 @@ public class HypervisorUtils {
 		
 		final Process startedProcess = processBuilder.start();
 		
-		int returnValue = startedProcess.waitFor();
-		
 		List<String> stdOut = readStdOut(startedProcess);
 		List<String> stdErr = readStdErr(startedProcess);
+		
+		int returnValue = startedProcess.waitFor();
 		
 		ExecutionResult executionResult = new ExecutionResult();
 		
@@ -126,6 +128,31 @@ public class HypervisorUtils {
 	}
 
 	public static boolean isWindowsHost() {
-		return System.getProperty("os.name").toLowerCase().contains("windows");
+		return checkHostOS("windows");
+	}
+
+	public static boolean isLinuxHost() {
+		return checkHostOS("linux");
+	}
+	
+	private static boolean checkHostOS(String osName) {
+		return System.getProperty("os.name").toLowerCase().contains(osName);
+	}
+	
+	public static boolean isWindowsGuest(VirtualMachine virtualMachine) {
+		return checkGuestOS(virtualMachine, "windows");
+	}
+	
+	public static boolean isLinuxGuest(VirtualMachine virtualMachine) {
+		return checkGuestOS(virtualMachine, "linux");
+	}
+	
+	private static boolean checkGuestOS(VirtualMachine virtualMachine, String osName) {
+		String os = virtualMachine.getProperty(VirtualMachineConstants.OS);
+		if (os == null) {
+			return false;
+		}
+		
+		return os.toLowerCase().contains(osName);
 	}
 }

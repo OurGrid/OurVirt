@@ -30,7 +30,11 @@ public interface HypervisorStrategy {
 	
 	public void destroy(VirtualMachine virtualMachine) throws Exception;
 	
-	public List<String> list() throws Exception;
+	public List<String> listVMs() throws Exception;
+	
+	public List<String> listSnapshots(VirtualMachine virtualMachine) throws Exception;
+	
+	public List<String> listSharedFolders(VirtualMachine virtualMachine) throws Exception;
 	
 	public boolean isSupported();
 }

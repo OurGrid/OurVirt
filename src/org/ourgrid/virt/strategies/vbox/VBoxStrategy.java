@@ -152,11 +152,21 @@ public class VBoxStrategy implements HypervisorStrategy {
 		JsonArray sharedFoldersJson = (JsonArray) new JsonParser().parse(sharedFolders);
 		
 		for (int i = 0; i < sharedFoldersJson.size(); i++) {
+			
 			JsonObject sharedFolderJson = (JsonObject) sharedFoldersJson.get(i);
 			String name = sharedFolderJson.get("name").getAsString();
 			String guestPath = sharedFolderJson.get("guestPath").getAsString();
-			exec(virtualMachine, 
-					"mount -t vboxsf " + name + " " + guestPath);
+			
+			if (HypervisorUtils.isWindowsGuest(virtualMachine)) {
+				exec(virtualMachine, 
+						"net use " + guestPath + " \\\\vboxsvr\\" + name);
+			} else if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
+				exec(virtualMachine, 
+						"mount -t vboxsf " + name + " " + guestPath);
+			} else {
+				throw new Exception("Guest OS not supported");
+			}
+			
 		}
 	}
 
@@ -186,10 +196,21 @@ public class VBoxStrategy implements HypervisorStrategy {
 			throws InterruptedException {
 		while (true) {
 			try {
-				ExecutionResult executionResult = exec(
-						virtualMachine, "/bin/echo check-started");
-				HypervisorUtils.checkExpectedMessage("check-started", 
-						executionResult.getStdOut());
+				
+				if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
+					ExecutionResult executionResult = exec(
+							virtualMachine, "/bin/echo check-started");
+					HypervisorUtils.checkExpectedMessage("check-started", 
+							executionResult.getStdOut());
+				} else if (HypervisorUtils.isWindowsGuest(virtualMachine)) {
+					ExecutionResult executionResult = exec(
+							virtualMachine, "Echo check-started");
+					HypervisorUtils.checkExpectedMessage("check-started", 
+							executionResult.getStdOut());
+				} else {
+					throw new Exception("Guest OS not supported");
+				}
+				
 				break;
 			} catch (Exception e) {}
 			
@@ -263,7 +284,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 		HypervisorUtils.runAndCheckProcess(destroyProcessBuilder);
 	}
 	
-	private static ProcessBuilder getProcessBuilder(String cmd) {
+	private static ProcessBuilder getProcessBuilder(String cmd) throws Exception {
 		
 		String vboxManageCmdLine = "VBoxManage --nologo " + cmd;
 		ProcessBuilder processBuilder = null;
@@ -271,8 +292,10 @@ public class VBoxStrategy implements HypervisorStrategy {
 		if (HypervisorUtils.isWindowsHost()) {
 			processBuilder = new ProcessBuilder("cmd", 
 					"/C " + vboxManageCmdLine);
-		} else {
+		} else if (HypervisorUtils.isLinuxHost()) {
 			processBuilder =  new ProcessBuilder(vboxManageCmdLine);
+		} else {
+			throw new Exception("Host OS not supported");
 		}
 		
 		processBuilder.directory(new File(
@@ -336,7 +359,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 	}
 	
 	@Override
-	public List<String> list() throws Exception {
+	public List<String> listVMs() throws Exception {
 		return list(false);
 	}
 
@@ -364,6 +387,53 @@ public class VBoxStrategy implements HypervisorStrategy {
 		}
 		
 		return VirtualMachineStatus.NOT_REGISTERED;
+	}
+
+	@Override
+	public List<String> listSnapshots(VirtualMachine virtualMachine) throws Exception {
+		ProcessBuilder vmInfoBuilder = getProcessBuilder(
+				"showvminfo \"" + virtualMachine.getName() + "\" --machinereadable");
+		ExecutionResult vmInfoResult = HypervisorUtils.runProcess(vmInfoBuilder);
+		
+		if (vmInfoResult.getReturnValue() != ExecutionResult.OK) {
+			throw new Exception(vmInfoResult.getStdErr().toString());
+		}
+		
+		List<String> vmInfoOutput = vmInfoResult.getStdOut();
+		List<String> snapshots = new LinkedList<String>();
+		
+		for (String vmInfoDetail : vmInfoOutput) {
+			if (vmInfoDetail.trim().startsWith("SnapshotName")) {
+				snapshots.add(vmInfoDetail.substring(
+						vmInfoDetail.indexOf('=') + 2, vmInfoDetail.length() - 1));
+			}
+		}
+		
+		return snapshots;
+	}
+
+	@Override
+	public List<String> listSharedFolders(VirtualMachine virtualMachine) throws Exception {
+		
+		ProcessBuilder vmInfoBuilder = getProcessBuilder(
+				"showvminfo \"" + virtualMachine.getName() + "\" --machinereadable");
+		ExecutionResult vmInfoResult = HypervisorUtils.runProcess(vmInfoBuilder);
+		
+		if (vmInfoResult.getReturnValue() != ExecutionResult.OK) {
+			throw new Exception(vmInfoResult.getStdErr().toString());
+		}
+		
+		List<String> vmInfoOutput = vmInfoResult.getStdOut();
+		List<String> sharedFolders = new LinkedList<String>();
+		
+		for (String vmInfoDetail : vmInfoOutput) {
+			if (vmInfoDetail.trim().startsWith("SharedFolderName")) {
+				sharedFolders.add(vmInfoDetail.substring(
+						vmInfoDetail.indexOf('=') + 2, vmInfoDetail.length() - 1));
+			}
+		}
+		
+		return sharedFolders;
 	}
 
 }

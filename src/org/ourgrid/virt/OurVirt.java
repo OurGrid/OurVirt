@@ -61,10 +61,18 @@ public class OurVirt {
 	}
 	
 	public List<String> list(HypervisorType hypervisor) throws Exception {
-		return factory.get(hypervisor).list();
+		return factory.get(hypervisor).listVMs();
 	}
 	
 	public boolean isSupported(HypervisorType hypervisor) throws Exception {
 		return factory.get(hypervisor).isSupported();
+	}
+	
+	public List<String> listSnapshots(HypervisorType hypervisor, String vmName) throws Exception {
+		return factory.get(hypervisor).listSnapshots(vMCache.get(vmName));
+	}
+	
+	public List<String> listSharedFolders(HypervisorType hypervisor, String vmName) throws Exception {
+		return factory.get(hypervisor).listSharedFolders(vMCache.get(vmName));
 	}
 }
