@@ -44,24 +44,26 @@ public class HypervisorUtils {
 		
 		ExecutionResult executionResult = HypervisorUtils.runProcess(processBuilder);
 		
-		List<String> stdOut = executionResult.getStdOut();
-		List<String> stdErr = executionResult.getStdErr();
-		
-		if (executionResult.getReturnValue() != 0) {
-			throw new IOException(stdErr.toString());
+		checkReturnValue(executionResult);
+		checkExpectedMessage(expectedMessage, 
+				executionResult);
+	}
+
+	public static void checkReturnValue(ExecutionResult executionResult) 
+			throws IOException {
+		if (executionResult.getReturnValue() != ExecutionResult.OK) {
+			throw new IOException(executionResult.getStdErr().toString());
 		}
-		
-		HypervisorUtils.checkExpectedMessage(expectedMessage, stdOut);
 	}
 
 	public static void checkExpectedMessage(String expectedMessage,
-			List<String> stdOut) throws IOException {
+			ExecutionResult executionResult) throws IOException {
 		
 		if (expectedMessage.isEmpty()) {
 			return;
 		}
 		
-		for (String line : stdOut) {
+		for (String line : executionResult.getStdOut()) {
 			if (line.toLowerCase().contains(
 					expectedMessage.toLowerCase())) {
 				return;
@@ -77,54 +79,51 @@ public class HypervisorUtils {
 		
 		final Process startedProcess = processBuilder.start();
 		
-		List<String> stdOut = readStdOut(startedProcess);
-		List<String> stdErr = readStdErr(startedProcess);
+		Callable<List<String>> stdOutCallable = createStreamCallable(
+				startedProcess.getInputStream());
+		Callable<List<String>> stdErrCallable = createStreamCallable(
+				startedProcess.getErrorStream());
+		
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		Future<List<String>> stdOutFuture = executor.submit(stdOutCallable);
+		Future<List<String>> stdErrFuture = executor.submit(stdErrCallable);
 		
 		int returnValue = startedProcess.waitFor();
 		
 		ExecutionResult executionResult = new ExecutionResult();
 		
 		executionResult.setReturnValue(returnValue);
-		executionResult.setStdErr(stdErr);
-		executionResult.setStdOut(stdOut);
+		executionResult.setStdOut(readStream(stdOutFuture));
+		executionResult.setStdErr(readStream(stdErrFuture));
+		
+		executor.shutdownNow();
 		
 		return executionResult;
 	}
 	
-	private static List<String> readStdOut(final Process startProcess)
-			throws Exception {
-		return readStream(startProcess, startProcess.getInputStream());
-	}
-	
-	private static List<String> readStdErr(final Process startProcess)
-			throws Exception {
-		return readStream(startProcess, startProcess.getErrorStream());
-	}
-	
-	private static List<String> readStream(final Process process, final InputStream stream) 
+	private static List<String> readStream(Future<List<String>> future) 
 			throws Exception {
 		
+		List<String> readLines = new LinkedList<String>();
+		try {
+			readLines = future.get(5, TimeUnit.SECONDS);
+		} catch (TimeoutException e) {
+		} finally {
+			future.cancel(true);
+		}
+		
+		return readLines;
+	}
+
+	private static Callable<List<String>> createStreamCallable(
+			final InputStream stream) {
 		Callable<List<String>> readLineCallable = new Callable<List<String>>() {
 			@Override
 			public List<String> call() throws Exception {
 				return IOUtils.readLines(stream);
 			}
 		};
-		
-		ExecutorService executor = Executors.newSingleThreadExecutor();
-		Future<List<String>> future = executor.submit(
-				readLineCallable);
-		
-		List<String> readLines = new LinkedList<String>();
-		try {
-			readLines = future.get(10, TimeUnit.SECONDS);
-		} catch (TimeoutException e) {
-		} finally {
-			future.cancel(true);
-			executor.shutdownNow();
-		}
-		
-		return readLines;
+		return readLineCallable;
 	}
 
 	public static boolean isWindowsHost() {

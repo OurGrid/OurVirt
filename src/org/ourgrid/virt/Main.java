@@ -1,5 +1,7 @@
 package org.ourgrid.virt;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -36,13 +38,24 @@ public class Main {
 		System.out.println(ourVirt.listSharedFolders(HypervisorType.VBOX, vmName));
 		
 		ourVirt.create(HypervisorType.VBOX, vmName);
+		ourVirt.createSharedFolder(HypervisorType.VBOX, vmName, 
+				"shared-home", "C:\\Users\\Abmar", "/home/worker/shared");
+		
+		ourVirt.mountSharedFolder(HypervisorType.VBOX, vmName, 
+				"shared-home", "/home/worker/shared");
+		
 		ourVirt.start(HypervisorType.VBOX, vmName);
 		
-		ExecutionResult exec = ourVirt.exec(HypervisorType.VBOX, vmName, "/bin/echo Hello World");
+		File file = new File("C:\\Users\\Abmar\\hello.txt");
+		FileWriter writer = new FileWriter(file);
+		writer.write("Hello World");
+		writer.close();
+		
+		ExecutionResult exec = ourVirt.exec(HypervisorType.VBOX, vmName, "/bin/cat /home/worker/shared/hello.txt");
 		System.out.println(exec.getStdOut().toString());
 		
-		ourVirt.stop(HypervisorType.VBOX, vmName);
-		ourVirt.destroy(HypervisorType.VBOX, vmName);
+//		ourVirt.stop(HypervisorType.VBOX, vmName);
+//		ourVirt.destroy(HypervisorType.VBOX, vmName);
 	}
 	
 }

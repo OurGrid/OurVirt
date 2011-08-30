@@ -75,4 +75,26 @@ public class OurVirt {
 	public List<String> listSharedFolders(HypervisorType hypervisor, String vmName) throws Exception {
 		return factory.get(hypervisor).listSharedFolders(vMCache.get(vmName));
 	}
+	
+	/**
+	 * The shared folder will be mounted automatically.
+	 * 
+	 * @param hypervisor
+	 * @param vmName
+	 * @param shareName
+	 * @param hostPath
+	 * @param guestPath
+	 * @throws Exception
+	 */
+	public void createSharedFolder(HypervisorType hypervisor, String vmName, String shareName, String hostPath, String guestPath) throws Exception {
+		factory.get(hypervisor).createSharedFolder(vMCache.get(vmName), shareName, hostPath, guestPath);
+	}
+	
+	public void createSharedFolder(HypervisorType hypervisor, String vmName, String shareName, String hostPath) throws Exception {
+		factory.get(hypervisor).createSharedFolder(vMCache.get(vmName), shareName, hostPath);
+	}
+	
+	public void mountSharedFolder(HypervisorType hypervisor, String vmName, String shareName, String guestPath) throws Exception {
+		factory.get(hypervisor).mountSharedFolder(vMCache.get(vmName), shareName, guestPath);
+	}
 }
