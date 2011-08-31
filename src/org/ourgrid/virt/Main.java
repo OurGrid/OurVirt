@@ -13,9 +13,6 @@ public class Main {
 
 	public static void main(String[] args) throws Exception {
 		OurVirt ourVirt = new OurVirt();
-		
-		System.out.println(ourVirt.isSupported(HypervisorType.VBOX));
-		System.out.println(ourVirt.list(HypervisorType.VBOX));
 		runVmServer(ourVirt);
 	}
 
@@ -34,17 +31,18 @@ public class Main {
 		
 		ourVirt.register(vmName, conf);
 		
-		System.out.println(ourVirt.listSnapshots(HypervisorType.VBOX, vmName));
-		System.out.println(ourVirt.listSharedFolders(HypervisorType.VBOX, vmName));
+		try {
+			ourVirt.stop(HypervisorType.VBOX, vmName);
+		} catch (Exception e) {}
 		
 		ourVirt.create(HypervisorType.VBOX, vmName);
 		ourVirt.createSharedFolder(HypervisorType.VBOX, vmName, 
-				"shared-home", "C:\\Users\\Abmar", "/home/worker/shared");
+				"shared-home", "C:\\Users\\Abmar");
+		
+		ourVirt.start(HypervisorType.VBOX, vmName);
 		
 		ourVirt.mountSharedFolder(HypervisorType.VBOX, vmName, 
 				"shared-home", "/home/worker/shared");
-		
-		ourVirt.start(HypervisorType.VBOX, vmName);
 		
 		File file = new File("C:\\Users\\Abmar\\hello.txt");
 		FileWriter writer = new FileWriter(file);
@@ -52,9 +50,9 @@ public class Main {
 		writer.close();
 		
 		ExecutionResult exec = ourVirt.exec(HypervisorType.VBOX, vmName, "/bin/cat /home/worker/shared/hello.txt");
+		System.out.println(exec.getReturnValue());
 		System.out.println(exec.getStdOut().toString());
 		
-//		ourVirt.stop(HypervisorType.VBOX, vmName);
 //		ourVirt.destroy(HypervisorType.VBOX, vmName);
 	}
 	

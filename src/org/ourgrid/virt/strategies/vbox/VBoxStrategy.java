@@ -88,7 +88,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 		
 		ProcessBuilder modifyVMBuilder = getProcessBuilder(
 				"modifyvm " + virtualMachine.getName() + " --memory " + memory + 
-				" --acpi on --boot1 disk");
+				" --acpi on --boot1 disk --vrde off");
 		HypervisorUtils.runAndCheckProcess(modifyVMBuilder);
 		
 		ProcessBuilder createControllerBuilder = getProcessBuilder(
@@ -170,7 +170,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 		
 		String password = virtualMachine.getConfiguration().get(
 				VirtualMachineConstants.GUEST_PASSWORD);
-		
+
 		String user = virtualMachine.getConfiguration().get(
 				VirtualMachineConstants.GUEST_USER);
 		
@@ -185,24 +185,25 @@ public class VBoxStrategy implements HypervisorStrategy {
 			long randId = Math.abs(new Random().nextLong());
 			String mountFileName = "mount" + randId + ".sh";
 			String mountFilePath = "/tmp/" + mountFileName;
-			
+
 			File mountFile = new File(mountFilePath);
 			FileWriter mountFileWriter = new FileWriter(mountFile);
 			mountFileWriter.write(
-					"sudo mount -t vboxsf " + name + " " + guestPath);
+					"sudo mount -t vboxsf " + name + " " + guestPath + "; " +
+					"rm " + mountFilePath);
 			mountFileWriter.close();
-			
+
 			try {
-				
+
 				ProcessBuilder copyMountScriptBuilder = getProcessBuilder(
 						"guestcontrol " + virtualMachine.getName() +  
 						" copyto \"" + mountFile.getCanonicalPath() + "\" /tmp/" + 
 						" --username " + user + " --password " + password);
 				HypervisorUtils.runAndCheckProcess(copyMountScriptBuilder);
-				
+
 				HypervisorUtils.checkReturnValue(
 						exec(virtualMachine, "/bin/bash " + mountFilePath));
-				
+
 			} finally {
 				mountFile.delete();
 			}
@@ -230,7 +231,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 		} else {
 			ProcessBuilder startProcessBuilder = getProcessBuilder(
 					"startvm " + virtualMachine.getName() + " --type headless");
-			HypervisorUtils.runAndCheckProcess(startProcessBuilder, "successfully started");
+			HypervisorUtils.runAndCheckProcess(startProcessBuilder);
 		}
 	}
 
@@ -242,13 +243,11 @@ public class VBoxStrategy implements HypervisorStrategy {
 				if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
 					ExecutionResult executionResult = exec(
 							virtualMachine, "/bin/echo check-started");
-					HypervisorUtils.checkExpectedMessage("check-started", 
-							executionResult);
+					HypervisorUtils.checkReturnValue(executionResult);
 				} else if (HypervisorUtils.isWindowsGuest(virtualMachine)) {
 					ExecutionResult executionResult = exec(
 							virtualMachine, "Echo check-started");
-					HypervisorUtils.checkExpectedMessage("check-started", 
-							executionResult);
+					HypervisorUtils.checkReturnValue(executionResult);
 				} else {
 					throw new Exception("Guest OS not supported");
 				}
@@ -351,9 +350,9 @@ public class VBoxStrategy implements HypervisorStrategy {
 			String shareName, String hostPath) throws Exception {
 		
 		ProcessBuilder versionProcessBuilder = getProcessBuilder(
-				"sharedfolder add \"" + virtualMachine.getName() + 
-				"\" --name \"" + shareName + 
-				"\" --hostpath \"" + hostPath + "\" --transient");
+				"sharedfolder add \"" + virtualMachine.getName() + "\"" + 
+				" --hostpath \"" + hostPath + "\"" +
+				" --name " + shareName); 
 		HypervisorUtils.runAndCheckProcess(versionProcessBuilder);
 	}
 	

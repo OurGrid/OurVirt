@@ -1,6 +1,5 @@
 package org.ourgrid.virt.strategies;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.LinkedList;
 import java.util.List;
@@ -27,50 +26,15 @@ public class HypervisorUtils {
 	 */
 	public static void runAndCheckProcess(ProcessBuilder processBuilder)
 			throws Exception {
-		HypervisorUtils.runAndCheckProcess(processBuilder, "");
-	}
-
-	/**
-	 * Runs a process and checks whether the process finished with exit value 0, 
-	 * and the stdout contains the expectedMessage.
-	 * If not, it throws an exception
-	 * 
-	 * @param processBuilder
-	 * @param expectedMessage
-	 * @throws Exception
-	 */
-	public static void runAndCheckProcess(ProcessBuilder processBuilder, String expectedMessage)
-			throws Exception {
-		
 		ExecutionResult executionResult = HypervisorUtils.runProcess(processBuilder);
-		
 		checkReturnValue(executionResult);
-		checkExpectedMessage(expectedMessage, 
-				executionResult);
 	}
 
 	public static void checkReturnValue(ExecutionResult executionResult) 
-			throws IOException {
+			throws Exception {
 		if (executionResult.getReturnValue() != ExecutionResult.OK) {
-			throw new IOException(executionResult.getStdErr().toString());
+			throw new Exception(executionResult.getStdErr().toString());
 		}
-	}
-
-	public static void checkExpectedMessage(String expectedMessage,
-			ExecutionResult executionResult) throws IOException {
-		
-		if (expectedMessage.isEmpty()) {
-			return;
-		}
-		
-		for (String line : executionResult.getStdOut()) {
-			if (line.toLowerCase().contains(
-					expectedMessage.toLowerCase())) {
-				return;
-			}
-		}
-		
-		throw new IOException();
 	}
 
 	public static ExecutionResult runProcess(
@@ -83,36 +47,46 @@ public class HypervisorUtils {
 				startedProcess.getInputStream());
 		Callable<List<String>> stdErrCallable = createStreamCallable(
 				startedProcess.getErrorStream());
+		Callable<Integer> waitForCallable = createWaitForCallable(
+				startedProcess);
 		
-		ExecutorService executor = Executors.newFixedThreadPool(2);
+		ExecutorService executor = Executors.newFixedThreadPool(3);
 		Future<List<String>> stdOutFuture = executor.submit(stdOutCallable);
 		Future<List<String>> stdErrFuture = executor.submit(stdErrCallable);
-		
-		int returnValue = startedProcess.waitFor();
+		Future<Integer> waitForFuture = executor.submit(waitForCallable);
 		
 		ExecutionResult executionResult = new ExecutionResult();
 		
-		executionResult.setReturnValue(returnValue);
-		executionResult.setStdOut(readStream(stdOutFuture));
-		executionResult.setStdErr(readStream(stdErrFuture));
+		executionResult.setStdOut(getStreamCallableResult(stdOutFuture));
+		executionResult.setStdErr(getStreamCallableResult(stdErrFuture));
+		executionResult.setReturnValue(getWaitForCallableResult(waitForFuture));
 		
 		executor.shutdownNow();
 		
 		return executionResult;
 	}
 	
-	private static List<String> readStream(Future<List<String>> future) 
+	private static List<String> getStreamCallableResult(Future<List<String>> future) throws Exception {
+		List<String> streamResult = readCallableResult(future);
+		return streamResult == null ? new LinkedList<String>() : streamResult;
+	}
+	
+	private static Integer getWaitForCallableResult(Future<Integer> future) throws Exception {
+		Integer waitForResult = readCallableResult(future);
+		return waitForResult == null ? -1 : waitForResult;
+	}
+	
+	private static <T> T  readCallableResult(Future<T> future) 
 			throws Exception {
 		
-		List<String> readLines = new LinkedList<String>();
 		try {
-			readLines = future.get(5, TimeUnit.SECONDS);
+			return future.get(5, TimeUnit.SECONDS);
 		} catch (TimeoutException e) {
+			return null;
 		} finally {
 			future.cancel(true);
 		}
 		
-		return readLines;
 	}
 
 	private static Callable<List<String>> createStreamCallable(
@@ -126,6 +100,17 @@ public class HypervisorUtils {
 		return readLineCallable;
 	}
 
+	private static Callable<Integer> createWaitForCallable(
+			final Process startedProcess) {
+		Callable<Integer> waitForCallable = new Callable<Integer>() {
+			@Override
+			public Integer call() throws Exception {
+				return startedProcess.waitFor();
+			}
+		};
+		return waitForCallable;
+	}
+	
 	public static boolean isWindowsHost() {
 		return checkHostOS("windows");
 	}
