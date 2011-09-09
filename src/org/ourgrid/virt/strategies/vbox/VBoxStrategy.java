@@ -182,6 +182,21 @@ public class VBoxStrategy implements HypervisorStrategy {
 			
 		} else if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
 			
+			try {
+				
+				ProcessBuilder createGuestFolderProcess = getProcessBuilder(
+						"guestcontrol " + virtualMachine.getName() +  
+						" mkdir \"" + guestPath + "\" --parents" + 
+						" --username " + user + " --password " + password);
+				
+				HypervisorUtils.runAndCheckProcess(
+						createGuestFolderProcess);
+				
+			} catch (Exception e) {
+				// TODO: Check if folder exists
+			}
+			
+			
 			long randId = Math.abs(new Random().nextLong());
 			String mountFileName = "mount" + randId + ".sh";
 			String mountFilePath = "/tmp/" + mountFileName;
@@ -202,7 +217,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 				HypervisorUtils.runAndCheckProcess(copyMountScriptBuilder);
 
 				HypervisorUtils.checkReturnValue(
-						exec(virtualMachine, "/bin/bash " + mountFilePath));
+						exec(virtualMachine, "/bin/bash -x " + mountFilePath));
 
 			} finally {
 				mountFile.delete();
