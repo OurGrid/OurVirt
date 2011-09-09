@@ -27,6 +27,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 	private static final String FILE_ERROR = "VBOX_E_FILE_ERROR";
 	private static final String OBJECT_IN_USE = "VBOX_E_OBJECT_IN_USE";
 	private static final String INVALID_ARG = "E_INVALIDARG";
+	private static final String NS_INVALID_ARG = "NS_ERROR_INVALID_ARG";
 	
 	private static final String DISK_CONTROLLER_NAME = "Disk Controller";
 	
@@ -108,7 +109,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 			}
 			
 			// VM already has a SATA controller with different name
-			if (stdErr.contains(INVALID_ARG)) {
+			if (stdErr.contains(INVALID_ARG) || stdErr.contains(NS_INVALID_ARG)) {
 				return false;
 			}
 			
