@@ -4,9 +4,12 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
@@ -122,7 +125,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 				VirtualMachineConstants.OS_VERSION);
 		
 		ProcessBuilder createProcessBuilder = getProcessBuilder(
-				"createvm --name " + virtualMachine.getName() + " --register --ostype " + os);
+				"createvm --name " + virtualMachine.getName() + " --ostype \"" + os + "\" --register");
 		ExecutionResult createExecutionResult = HypervisorUtils.runProcess(createProcessBuilder);
 		
 		String stdErr = createExecutionResult.getStdErr().toString();
@@ -340,24 +343,54 @@ public class VBoxStrategy implements HypervisorStrategy {
 		HypervisorUtils.runAndCheckProcess(destroyProcessBuilder);
 	}
 	
-	private static ProcessBuilder getProcessBuilder(String cmd) throws Exception {
+	private static ProcessBuilder getProcessBuilder(
+			String cmd) throws Exception {
 		
 		String vboxManageCmdLine = "VBoxManage --nologo " + cmd;
 		ProcessBuilder processBuilder = null;
 		
+		String vBoxInstallPath = System.getenv().get("VBOX_INSTALL_PATH");
+		
 		if (HypervisorUtils.isWindowsHost()) {
+			if (!new File(vBoxInstallPath + "\\VBoxManage.exe").exists()) {
+				vBoxInstallPath = null;
+			}
 			processBuilder = new ProcessBuilder("cmd", 
 					"/C " + vboxManageCmdLine);
+			
 		} else if (HypervisorUtils.isLinuxHost()) {
-			processBuilder =  new ProcessBuilder(vboxManageCmdLine);
+			
+			List<String> matchList = splitCmdLine(vboxManageCmdLine); 
+			processBuilder =  new ProcessBuilder(matchList.toArray(new String[]{}));
+			
 		} else {
 			throw new Exception("Host OS not supported");
 		}
 		
-		processBuilder.directory(new File(
-				System.getenv().get("VBOX_INSTALL_PATH")));
+		if (vBoxInstallPath != null) {
+			processBuilder.directory(new File(vBoxInstallPath));
+		}
 		
 		return processBuilder;
+	}
+
+	private static List<String> splitCmdLine(String vboxManageCmdLine) {
+		List<String> matchList = new ArrayList<String>();
+		Pattern regex = Pattern.compile("[^\\s\"']+|\"([^\"]*)\"|'([^']*)'");
+		Matcher regexMatcher = regex.matcher(vboxManageCmdLine);
+		while (regexMatcher.find()) {
+		    if (regexMatcher.group(1) != null) {
+		        // Add double-quoted string without the quotes
+		        matchList.add(regexMatcher.group(1));
+		    } else if (regexMatcher.group(2) != null) {
+		        // Add single-quoted string without the quotes
+		        matchList.add(regexMatcher.group(2));
+		    } else {
+		        // Add unquoted word
+		        matchList.add(regexMatcher.group());
+		    }
+		}
+		return matchList;
 	}
 	
 	@Override
