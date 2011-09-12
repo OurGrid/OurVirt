@@ -186,30 +186,16 @@ public class VBoxStrategy implements HypervisorStrategy {
 			
 		} else if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
 			
-			try {
-				
-				ProcessBuilder createGuestFolderProcess = getProcessBuilder(
-						"guestcontrol " + virtualMachine.getName() +  
-						" mkdir \"" + guestPath + "\" --parents" + 
-						" --username " + user + " --password " + password);
-				
-				HypervisorUtils.runAndCheckProcess(
-						createGuestFolderProcess);
-				
-			} catch (Exception e) {
-				// TODO: Check if folder exists
-			}
-			
-			
 			long randId = Math.abs(new Random().nextLong());
-			String mountFileName = "mount" + randId + ".sh";
-			String mountFilePath = "/tmp/" + mountFileName;
+			String mountScriptFileName = "mount" + randId + ".sh";
+			String mountScriptFilePath = "/tmp/" + mountScriptFileName;
 
-			File mountFile = new File(mountFilePath);
+			File mountFile = new File(mountScriptFilePath);
 			FileWriter mountFileWriter = new FileWriter(mountFile);
 			mountFileWriter.write(
+					"mkdir -p " + guestPath + "; " +
 					"sudo mount -t vboxsf " + name + " " + guestPath + "; " +
-					"rm " + mountFilePath);
+					"rm " + mountScriptFilePath);
 			mountFileWriter.close();
 
 			try {
@@ -221,7 +207,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 				HypervisorUtils.runAndCheckProcess(copyMountScriptBuilder);
 
 				HypervisorUtils.checkReturnValue(
-						exec(virtualMachine, "/bin/bash -x " + mountFilePath));
+						exec(virtualMachine, "/bin/bash -x " + mountScriptFilePath));
 
 			} finally {
 				mountFile.delete();
