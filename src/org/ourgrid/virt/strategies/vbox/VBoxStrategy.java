@@ -28,8 +28,10 @@ public class VBoxStrategy implements HypervisorStrategy {
 	private static final String OBJECT_IN_USE = "VBOX_E_OBJECT_IN_USE";
 	private static final String INVALID_ARG = "E_INVALIDARG";
 	private static final String NS_INVALID_ARG = "NS_ERROR_INVALID_ARG";
-	
+
 	private static final String DISK_CONTROLLER_NAME = "Disk Controller";
+	
+	public static final String COPY_ERROR = "Progress state: VBOX_E_IPRT_ERROR";
 	
 	@Override
 	public void create(VirtualMachine virtualMachine) throws Exception {
@@ -193,7 +195,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 			File mountFile = new File(mountScriptFilePath);
 			FileWriter mountFileWriter = new FileWriter(mountFile);
 			mountFileWriter.write(
-					"mkdir -p " + guestPath + "; " +
+					"/bin/mkdir -p " + guestPath + "; " +
 					"sudo mount -t vboxsf " + name + " " + guestPath + "; " +
 					"rm " + mountScriptFilePath);
 			mountFileWriter.close();

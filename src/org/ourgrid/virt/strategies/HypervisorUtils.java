@@ -14,6 +14,7 @@ import org.apache.commons.io.IOUtils;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
+import org.ourgrid.virt.strategies.vbox.VBoxStrategy;
 
 public class HypervisorUtils {
 
@@ -33,7 +34,9 @@ public class HypervisorUtils {
 	public static void checkReturnValue(ExecutionResult executionResult) 
 			throws Exception {
 		if (executionResult.getReturnValue() != ExecutionResult.OK) {
-			throw new Exception(executionResult.getStdErr().toString());
+			if ( !executionResult.getStdErr().contains(VBoxStrategy.COPY_ERROR) ){
+				throw new Exception(executionResult.getStdErr().toString());
+			}
 		}
 	}
 
