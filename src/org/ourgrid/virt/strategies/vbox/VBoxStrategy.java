@@ -28,10 +28,10 @@ public class VBoxStrategy implements HypervisorStrategy {
 	private static final String OBJECT_IN_USE = "VBOX_E_OBJECT_IN_USE";
 	private static final String INVALID_ARG = "E_INVALIDARG";
 	private static final String NS_INVALID_ARG = "NS_ERROR_INVALID_ARG";
-
+	private static final String COPY_ERROR = "VBOX_E_IPRT_ERROR";
+	
 	private static final String DISK_CONTROLLER_NAME = "Disk Controller";
 	
-	public static final String COPY_ERROR = "Progress state: VBOX_E_IPRT_ERROR";
 	
 	@Override
 	public void create(VirtualMachine virtualMachine) throws Exception {
@@ -196,7 +196,8 @@ public class VBoxStrategy implements HypervisorStrategy {
 			FileWriter mountFileWriter = new FileWriter(mountFile);
 			mountFileWriter.write(
 					"/bin/mkdir -p " + guestPath + "; " +
-					"sudo mount -t vboxsf " + name + " " + guestPath + "; " +
+					"sudo mount -t vboxsf -o uid=" + user + ",gid=" + user + 
+					" " + name + " " + guestPath + "; " +
 					"rm " + mountScriptFilePath);
 			mountFileWriter.close();
 
@@ -206,7 +207,13 @@ public class VBoxStrategy implements HypervisorStrategy {
 						"guestcontrol " + virtualMachine.getName() +  
 						" copyto \"" + mountFile.getCanonicalPath() + "\" /tmp/" + 
 						" --username " + user + " --password " + password);
-				HypervisorUtils.runAndCheckProcess(copyMountScriptBuilder);
+				ExecutionResult executionResult = HypervisorUtils.runProcess(
+						copyMountScriptBuilder);
+				
+				if (executionResult.getReturnValue() != ExecutionResult.OK && 
+						!executionResult.getStdErr().contains(VBoxStrategy.COPY_ERROR)) {
+					throw new Exception(executionResult.getStdErr().toString());
+				}
 
 				HypervisorUtils.checkReturnValue(
 						exec(virtualMachine, "/bin/bash -x " + mountScriptFilePath));

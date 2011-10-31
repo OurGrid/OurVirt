@@ -14,7 +14,6 @@ import org.apache.commons.io.IOUtils;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
-import org.ourgrid.virt.strategies.vbox.VBoxStrategy;
 
 public class HypervisorUtils {
 
@@ -34,9 +33,7 @@ public class HypervisorUtils {
 	public static void checkReturnValue(ExecutionResult executionResult) 
 			throws Exception {
 		if (executionResult.getReturnValue() != ExecutionResult.OK) {
-			if ( !executionResult.getStdErr().contains(VBoxStrategy.COPY_ERROR) ){
-				throw new Exception(executionResult.getStdErr().toString());
-			}
+			throw new Exception(executionResult.getStdErr().toString());
 		}
 	}
 
@@ -60,9 +57,9 @@ public class HypervisorUtils {
 		
 		ExecutionResult executionResult = new ExecutionResult();
 		
+		executionResult.setReturnValue(getWaitForCallableResult(waitForFuture));
 		executionResult.setStdOut(getStreamCallableResult(stdOutFuture));
 		executionResult.setStdErr(getStreamCallableResult(stdErrFuture));
-		executionResult.setReturnValue(getWaitForCallableResult(waitForFuture));
 		
 		executor.shutdownNow();
 		
@@ -75,7 +72,7 @@ public class HypervisorUtils {
 	}
 	
 	private static Integer getWaitForCallableResult(Future<Integer> future) throws Exception {
-		Integer waitForResult = readCallableResult(future);
+		Integer waitForResult = waitForCallableResult(future);
 		return waitForResult == null ? -1 : waitForResult;
 	}
 	
@@ -83,13 +80,22 @@ public class HypervisorUtils {
 			throws Exception {
 		
 		try {
-			return future.get(5, TimeUnit.SECONDS);
+			return future.get(60, TimeUnit.SECONDS);
 		} catch (TimeoutException e) {
 			return null;
 		} finally {
 			future.cancel(true);
 		}
 		
+	}
+	
+	private static <T> T waitForCallableResult(Future<T> future)
+			throws Exception {
+		try {
+			return future.get();
+		} finally {
+			future.cancel(true);
+		}
 	}
 
 	private static Callable<List<String>> createStreamCallable(
