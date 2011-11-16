@@ -15,12 +15,18 @@ public interface HypervisorStrategy {
 
 	public VirtualMachineStatus status(VirtualMachine virtualMachine) throws Exception;
 	
+	/**
+	 * Create a shared folder.
+	 * 
+	 * @param virtualMachine
+	 * @param shareName
+	 * @param hostPath
+	 * @param guestPath
+	 * @throws Exception
+	 */
 	public void createSharedFolder(VirtualMachine virtualMachine, String shareName, 
 			String hostPath, String guestPath) throws Exception;
 
-	public void createSharedFolder(VirtualMachine virtualMachine, String shareName,
-			String hostPath) throws Exception;
-	
 	public void takeSnapshot(String vMName, String snapshotName)
 			throws Exception;
 
@@ -42,7 +48,6 @@ public interface HypervisorStrategy {
 	
 	public boolean isSupported();
 
-	void mountSharedFolder(VirtualMachine virtualMachine, String name,
-			String guestPath) throws Exception;
+	void mountSharedFolder(VirtualMachine virtualMachine, String name) throws Exception;
 
 }

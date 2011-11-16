@@ -144,35 +144,18 @@ public class VBoxStrategy implements HypervisorStrategy {
 	public void start(VirtualMachine virtualMachine) throws Exception {
 		startVirtualMachine(virtualMachine);
 		checkOSStarted(virtualMachine);
-		mountSharedFolders(virtualMachine);
-	}
-
-	private void mountSharedFolders(VirtualMachine virtualMachine) throws Exception {
-		
-		String sharedFolders = virtualMachine.getProperty(
-				VirtualMachineConstants.SHARED_FOLDERS);
-		
-		if (sharedFolders == null) {
-			return;
-		}
-		
-		JsonArray sharedFoldersJson = (JsonArray) new JsonParser().parse(sharedFolders);
-		
-		for (int i = 0; i < sharedFoldersJson.size(); i++) {
-			
-			JsonObject sharedFolderJson = (JsonObject) sharedFoldersJson.get(i);
-			String name = sharedFolderJson.get("name").getAsString();
-			String guestPath = sharedFolderJson.get("guestpath").getAsString();
-			
-			mountSharedFolder(virtualMachine, name, guestPath);
-			
-		}
 	}
 
 	@Override
 	public void mountSharedFolder(VirtualMachine virtualMachine,
-			String name, String guestPath)
+			String shareName)
 			throws Exception {
+		
+		String guestPath = getGuestPath(virtualMachine, shareName);
+		
+		if (guestPath == null) {
+			throw new IllegalArgumentException("Shared folder [" + shareName + "] does not exist.");
+		}
 		
 		String password = virtualMachine.getConfiguration().get(
 				VirtualMachineConstants.GUEST_PASSWORD);
@@ -184,7 +167,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 			
 			HypervisorUtils.checkReturnValue(
 					exec(virtualMachine, 
-					"net use " + guestPath + " \\\\vboxsvr\\" + name));
+					"net use " + guestPath + " \\\\vboxsvr\\" + shareName));
 			
 		} else if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
 			
@@ -197,7 +180,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 			mountFileWriter.write(
 					"/bin/mkdir -p " + guestPath + "; " +
 					"sudo mount -t vboxsf -o uid=" + user + ",gid=" + user + 
-					" " + name + " " + guestPath + "; " +
+					" " + shareName + " " + guestPath + "; " +
 					"rm " + mountScriptFilePath);
 			mountFileWriter.close();
 
@@ -227,6 +210,25 @@ public class VBoxStrategy implements HypervisorStrategy {
 		}
 	}
 
+	private static String getGuestPath(VirtualMachine virtualMachine, String shareName) {
+		String sharedFolders = virtualMachine.getProperty(
+				VirtualMachineConstants.SHARED_FOLDERS);
+		
+		JsonArray sharedFoldersJson = (JsonArray) new JsonParser().parse(sharedFolders);
+		
+		for (int i = 0; i < sharedFoldersJson.size(); i++) {
+			
+			JsonObject sharedFolderJson = (JsonObject) sharedFoldersJson.get(i);
+			String name = sharedFolderJson.get("name").getAsString();
+			
+			if (name.equals(shareName)) {
+				return sharedFolderJson.get("guestpath").getAsString();
+			}
+		}
+		
+		return null;
+	}
+
 	private void startVirtualMachine(VirtualMachine virtualMachine)
 			throws IOException, Exception {
 		
@@ -244,7 +246,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 			
 		} else {
 			ProcessBuilder startProcessBuilder = getProcessBuilder(
-					"startvm " + virtualMachine.getName() + " --type headless");
+					"startvm " + virtualMachine.getName()); //+ " --type headless");
 			HypervisorUtils.runAndCheckProcess(startProcessBuilder);
 		}
 	}
@@ -391,20 +393,13 @@ public class VBoxStrategy implements HypervisorStrategy {
 	
 	@Override
 	public void createSharedFolder(VirtualMachine virtualMachine,
-			String shareName, String hostPath) throws Exception {
+			String shareName, String hostPath, String guestPath) throws Exception {
 		
 		ProcessBuilder versionProcessBuilder = getProcessBuilder(
 				"sharedfolder add \"" + virtualMachine.getName() + "\"" + 
 				" --hostpath \"" + hostPath + "\"" +
 				" --name " + shareName); 
 		HypervisorUtils.runAndCheckProcess(versionProcessBuilder);
-	}
-	
-	@Override
-	public void createSharedFolder(VirtualMachine virtualMachine,
-			String shareName, String hostPath, String guestPath) throws Exception {
-		
-		createSharedFolder(virtualMachine, shareName, hostPath);
 		
 		String sharedFolders = virtualMachine.getProperty(
 				VirtualMachineConstants.SHARED_FOLDERS);

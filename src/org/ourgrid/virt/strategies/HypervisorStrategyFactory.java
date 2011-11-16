@@ -5,6 +5,7 @@ import java.util.Map;
 
 import org.ourgrid.virt.model.HypervisorType;
 import org.ourgrid.virt.strategies.vbox.VBoxStrategy;
+import org.ourgrid.virt.strategies.vserver.VServerStrategy;
 
 public class HypervisorStrategyFactory {
 
@@ -26,6 +27,8 @@ public class HypervisorStrategyFactory {
 		switch (hypervisorType) {
 		case VBOX:
 			return new VBoxStrategy();
+		case VSERVER:
+			return new VServerStrategy();
 		default:
 			return null;
 		}

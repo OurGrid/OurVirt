@@ -90,11 +90,7 @@ public class OurVirt {
 		factory.get(hypervisor).createSharedFolder(vMCache.get(vmName), shareName, hostPath, guestPath);
 	}
 	
-	public void createSharedFolder(HypervisorType hypervisor, String vmName, String shareName, String hostPath) throws Exception {
-		factory.get(hypervisor).createSharedFolder(vMCache.get(vmName), shareName, hostPath);
-	}
-	
-	public void mountSharedFolder(HypervisorType hypervisor, String vmName, String shareName, String guestPath) throws Exception {
-		factory.get(hypervisor).mountSharedFolder(vMCache.get(vmName), shareName, guestPath);
+	public void mountSharedFolder(HypervisorType hypervisor, String vmName, String shareName) throws Exception {
+		factory.get(hypervisor).mountSharedFolder(vMCache.get(vmName), shareName);
 	}
 }
