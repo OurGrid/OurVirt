@@ -4,22 +4,22 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.ourgrid.virt.model.ExecutionResult;
+import org.ourgrid.virt.model.SharedFolder;
+import org.ourgrid.virt.model.Snapshot;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
 import org.ourgrid.virt.model.VirtualMachineStatus;
+import org.ourgrid.virt.strategies.HypervisorConfigurationFile;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-
 public class VServerStrategy implements HypervisorStrategy {
+	
+	private final int VSERVER_STOPPED_EXIT_VALUE = 3; 
 
 	@Override
 	public void create(VirtualMachine virtualMachine) throws Exception {
@@ -39,7 +39,7 @@ public class VServerStrategy implements HypervisorStrategy {
 		}
 	}
 
-private void register(VirtualMachine virtualMachine) throws Exception {
+	private void register(VirtualMachine virtualMachine) throws Exception {
 		
 		String vmName = virtualMachine.getName();
 		String imagePath = virtualMachine.getProperty(VirtualMachineConstants.DISK_IMAGE_PATH);
@@ -50,7 +50,7 @@ private void register(VirtualMachine virtualMachine) throws Exception {
 		HypervisorUtils.runAndCheckProcess(buildVMBuilder);
 	}
 
-private boolean checkWhetherMachineExists(VirtualMachine virtualMachine) {
+	private boolean checkWhetherMachineExists(VirtualMachine virtualMachine) {
 	
 		String vmName = virtualMachine.getName();
 		return new File("/etc/vservers/"+vmName).exists();
@@ -59,44 +59,29 @@ private boolean checkWhetherMachineExists(VirtualMachine virtualMachine) {
 	@Override
 	public void start(VirtualMachine virtualMachine) throws Exception {
 		
+		if (status(virtualMachine) == VirtualMachineStatus.RUNNING) {
+			return;
+		}
+		
 		startVirtualMachine(virtualMachine);
 		checkOSStarted(virtualMachine);
 	}
 
-	private static JsonObject getSharedFolderPaths(VirtualMachine virtualMachine, String shareName) {
-		String sharedFolders = virtualMachine.getProperty(
-				VirtualMachineConstants.SHARED_FOLDERS);
-		
-		JsonArray sharedFoldersJson = (JsonArray) new JsonParser().parse(sharedFolders);
-		
-		for (int i = 0; i < sharedFoldersJson.size(); i++) {
-			
-			JsonObject sharedFolderJson = (JsonObject) sharedFoldersJson.get(i);
-			String name = sharedFolderJson.get("name").getAsString();
-			
-			if (name.equals(shareName)) {
-				return sharedFolderJson;
-			}
-		}
-		
-		return null;
-	}
-	
 	@Override
 	public void mountSharedFolder(VirtualMachine virtualMachine,
-			String name)
+			String shareName)
 			throws Exception {
 		
-		String vmName = virtualMachine.getName();
-		JsonObject sharedFolderPaths =  getSharedFolderPaths(virtualMachine, name);
-		
-		String hostPath = sharedFolderPaths.get("hostpath").getAsString();
-		String guestPath = sharedFolderPaths.get("guestpath").getAsString();
-		
-		if (guestPath == null || hostPath == null) {
-			throw new IllegalArgumentException("Shared folder [" + name + "] does not exist.");
+		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
+			throw new Exception("Unable to mount shared folder. Machine is not started.");
 		}
 		
+		SharedFolder sharedFolder = HypervisorUtils.getSharedFolder(virtualMachine, shareName);
+		
+		String guestPath = sharedFolder.getGuestpath();
+		String hostPath = sharedFolder.getHostpath();
+		
+		String vmName = virtualMachine.getName();
 		ExecutionResult mountProcess = HypervisorUtils.runProcess(
 				getProcessBuilder("sudo mount --bind " + hostPath + " /etc/vservers/.defaults/vdirbase/" + vmName + "/" + guestPath ));
  		HypervisorUtils.checkReturnValue(mountProcess);
@@ -110,7 +95,7 @@ private boolean checkWhetherMachineExists(VirtualMachine virtualMachine) {
 	private void startVirtualMachine(VirtualMachine virtualMachine)
 			throws IOException, Exception {
 		
-		ProcessBuilder startProcessBuilder = getProcessBuilder(virtualMachine, "start");
+		ProcessBuilder startProcessBuilder = getVMProcessBuilder(virtualMachine, "start");
 		HypervisorUtils.runAndCheckProcess(startProcessBuilder);
 	}
 
@@ -134,115 +119,158 @@ private boolean checkWhetherMachineExists(VirtualMachine virtualMachine) {
 	@Override
 	public void stop(VirtualMachine virtualMachine) throws Exception {
 		
-		ProcessBuilder stopProcessBuilder = getProcessBuilder(virtualMachine, "stop");
+		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
+			return;
+		}
+		
+		ProcessBuilder stopProcessBuilder = getVMProcessBuilder(virtualMachine, "stop");
 		HypervisorUtils.runAndCheckProcess(stopProcessBuilder);
 	}
 	
 	@Override
 	public ExecutionResult exec(VirtualMachine virtualMachine, String command) throws Exception {
+
+		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
+			throw new Exception("Unable to execute command. Machine is not started.");
+		}
 		
-		ProcessBuilder stopProcessBuilder = getProcessBuilder(virtualMachine, "exec " + command);
-		return HypervisorUtils.runProcess(stopProcessBuilder);
+		ProcessBuilder execProcessBuilder = new ProcessBuilder("/usr/bin/sudo", "/usr/sbin/vserver", 
+				virtualMachine.getName(), "exec", "/bin/sh", "-c" , command);
+		return HypervisorUtils.runProcess(execProcessBuilder);
 	}
 	
 	@Override
-	public void takeSnapshot(String vMName, String snapshotName)
+	public void takeSnapshot(VirtualMachine virtualMachine, String snapshotName)
 			throws Exception {
-		//FIXME TODO
+		
+		if (status(virtualMachine) == VirtualMachineStatus.RUNNING) {
+			throw new Exception("Unable to take snapshot. Machine is started.");
+		}
+		
+		String vmName = virtualMachine.getName();
+		
+		String actualSnapshotName = vmName + "-" + snapshotName;
+		
+		if (HypervisorUtils.snapshotExists(virtualMachine, actualSnapshotName)) {
+			throw new Exception("Snapshot [ " + snapshotName + " ] already exists " +
+					"for virtual machine [ " + vmName + " ].");
+		}
+		
+		ExecutionResult takeSnapshotProcess = HypervisorUtils.runProcess(
+				getVServerProcessBuilder(actualSnapshotName + " build -m clone -- --source /etc/vservers/.defaults/vdirbase/" +  vmName));
+ 		HypervisorUtils.checkReturnValue(takeSnapshotProcess);
+ 		
+ 		Snapshot snapshot = new Snapshot(snapshotName);
+ 		new HypervisorConfigurationFile(virtualMachine.getName()).addSnapshot(snapshot);
 	}
 	
 	@Override
-	public void restoreSnapshot(String vMName, String snapshotName)
+	public void restoreSnapshot(VirtualMachine virtualMachine, String snapshotName)
 			throws Exception {
-		//FIXME TODO
+
+		String vmName = virtualMachine.getName();
+
+		if (! HypervisorUtils.snapshotExists(virtualMachine, snapshotName)) {
+			throw new Exception("Snapshot [ " + snapshotName + " ] does not exist " +
+					"for virtual machine [ " + vmName + " ].");
+		} 
+		
+		String actualSnapshotName = vmName + "-" + snapshotName;
+		
+		if (status(virtualMachine) == VirtualMachineStatus.RUNNING) {
+			stop(virtualMachine);
+		}
+		
+		destroy(virtualMachine);
+		
+ 		ExecutionResult restoreSnapshotProcess = HypervisorUtils.runProcess(
+				getVMProcessBuilder(virtualMachine, "build -m clone -- --source /etc/vservers/.defaults/vdirbase/" +  actualSnapshotName));
+ 		HypervisorUtils.checkReturnValue(restoreSnapshotProcess);
 	}
 	
 	@Override
 	public void destroy(VirtualMachine virtualMachine) throws Exception {
+
+		if (status(virtualMachine) == VirtualMachineStatus.RUNNING) {
+			stop(virtualMachine);
+		}
 		
-		ProcessBuilder destroyProcessBuilder = getProcessBuilder(virtualMachine, "delete");
+		String vmName = virtualMachine.getName();
+		
+		List<String> sharedFolderHostPaths =  getVMMountedSharedFolders(virtualMachine);
+		
+		for (String hostPath : sharedFolderHostPaths) {
+			if (hostPath == null) {
+				throw new IllegalArgumentException("Shared folder with hostpath [" + hostPath + "] does not exist.");
+			}
+			unmountSharedFolderByHostPath(virtualMachine, hostPath);
+		}		
+		
+		ProcessBuilder destroyProcessBuilder = new ProcessBuilder("/bin/sh", "-c", "/bin/echo  \"y\" | /usr/bin/sudo vserver " +  vmName + " delete ");
 		HypervisorUtils.runAndCheckProcess(destroyProcessBuilder);
 	}
 	
-	private static ProcessBuilder getProcessBuilder(VirtualMachine virtualMachine, String cmd) throws Exception {
+	private static List<String> getVMMountedSharedFolders(VirtualMachine virtualMachine) throws Exception {
+		
+		String vmName = virtualMachine.getName();
+		
+		List<String> sharedFoldersHostPaths = new ArrayList<String>();
+		
+		ExecutionResult getSharedFoldersProcess = HypervisorUtils.runProcess(getProcessBuilder("/usr/bin/sudo /bin/mount -l"));
+		
+		List<String> getSharedFoldersProcessOutPut = getSharedFoldersProcess.getStdOut();
+		
+		for (String mountedFolder : getSharedFoldersProcessOutPut) {
+			if (mountedFolder.contains(vmName)) {
+				String currentHostPath = "/etc/vservers/" + mountedFolder.substring(
+						mountedFolder.indexOf(vmName)).split(" ")[0].replace(vmName, vmName + "/vdir");
+				sharedFoldersHostPaths.add(currentHostPath);
+			}
+		}
+		
+		return sharedFoldersHostPaths;
+	}
+	
+	private static ProcessBuilder getVMProcessBuilder(VirtualMachine virtualMachine, String cmd) throws Exception {
 		return getVServerProcessBuilder(virtualMachine.getName() + " " + cmd);
 	}
 	
 	private static ProcessBuilder getVServerProcessBuilder(String cmd) throws Exception {
-		
-		String vserverCmdLine = "/usr/bin/sudo vserver " + cmd;
+		String vserverCmdLine = "/usr/bin/sudo /usr/sbin/vserver " + cmd;
 		return getProcessBuilder(vserverCmdLine);
 	}
 	
-private static ProcessBuilder getProcessBuilder(String cmd) throws Exception {
+	private static ProcessBuilder getProcessBuilder(String cmd) throws Exception {
 		
 		ProcessBuilder processBuilder = null;
 		
 		if (HypervisorUtils.isLinuxHost()) {
 			
-			List<String> matchList = splitCmdLine(cmd); 
+			List<String> matchList = HypervisorUtils.splitCmdLine(cmd);
 			processBuilder =  new ProcessBuilder(matchList.toArray(new String[]{}));
 			
 		} else {
 			throw new Exception("Host OS not supported");
 		}
-		
+	
 		return processBuilder;
 	}
 
-	private static List<String> splitCmdLine(String vboxManageCmdLine) {
-		List<String> matchList = new ArrayList<String>();
-		Pattern regex = Pattern.compile("[^\\s\"']+|\"([^\"]*)\"|'([^']*)'");
-		Matcher regexMatcher = regex.matcher(vboxManageCmdLine);
-		while (regexMatcher.find()) {
-		    if (regexMatcher.group(1) != null) {
-		        // Add double-quoted string without the quotes
-		        matchList.add(regexMatcher.group(1));
-		    } else if (regexMatcher.group(2) != null) {
-		        // Add single-quoted string without the quotes
-		        matchList.add(regexMatcher.group(2));
-		    } else {
-		        // Add unquoted word
-		        matchList.add(regexMatcher.group());
-		    }
-		}
-		return matchList;
-	}
-	
 	@Override
-	public void createSharedFolder(VirtualMachine virtualMachine,
-			String shareName, String hostPath, String guestPath) throws Exception {
+	public void createSharedFolder(VirtualMachine virtualMachine, String shareName,
+			String hostPath, String guestPath) throws Exception {
 
 		String vmName = virtualMachine.getName();
 		ExecutionResult createSharedFolderDir = HypervisorUtils.runProcess(
 				getProcessBuilder("/usr/bin/sudo /bin/mkdir -p /etc/vservers/.defaults/vdirbase/" + vmName + "/" + guestPath));
 		HypervisorUtils.checkReturnValue(createSharedFolderDir);		
 		
-		
 		ExecutionResult fstabEntry = HypervisorUtils.runProcess(
 				getProcessBuilder("echo " + hostPath + " " + guestPath + " none bind 0 0 >> /etc/vservers/" + vmName + "/fstab"));
-		HypervisorUtils.checkReturnValue(fstabEntry);		
-		
-		String sharedFolders = virtualMachine.getProperty(
-				VirtualMachineConstants.SHARED_FOLDERS);
-		JsonArray sharedFoldersArray = null;
-		
-		if (sharedFolders == null) {
-			sharedFoldersArray = new JsonArray();
-		} else {
-			sharedFoldersArray = (JsonArray) new JsonParser().parse(sharedFolders);
-		}
-		
-		JsonObject sfObject = new JsonObject();
-		sfObject.addProperty("name", shareName);
-		sfObject.addProperty("hostpath", hostPath);
-		sfObject.addProperty("guestpath", guestPath);
-		
-		sharedFoldersArray.add(sfObject);
-		
-		virtualMachine.setProperty(
-				VirtualMachineConstants.SHARED_FOLDERS, 
-				sharedFoldersArray.toString());
+		HypervisorUtils.checkReturnValue(fstabEntry);
+
+		SharedFolder sharedFolder = new SharedFolder(shareName, hostPath, guestPath);
+		new HypervisorConfigurationFile(virtualMachine.getName()).addSharedFolder(sharedFolder);
 	}
 
 	@Override
@@ -273,10 +301,14 @@ private static ProcessBuilder getProcessBuilder(String cmd) throws Exception {
 	public VirtualMachineStatus status(VirtualMachine virtualMachine)
 			throws Exception {
 		
-		ProcessBuilder statusProcess = getProcessBuilder(virtualMachine, "status");
+		ProcessBuilder statusProcess = getVMProcessBuilder(virtualMachine, "status");
 		ExecutionResult statusInfo = HypervisorUtils.runProcess(statusProcess);
 		
-		HypervisorUtils.checkReturnValue(statusInfo);
+		if (statusInfo.getReturnValue() != ExecutionResult.OK) {
+			if (statusInfo.getReturnValue() !=  VSERVER_STOPPED_EXIT_VALUE) {
+				throw new Exception(statusInfo.getStdErr().toString());
+			}
+		}
 		
 		String status = statusInfo.getStdOut().get(0);
 		if ( status.contains("running") ){
@@ -290,13 +322,44 @@ private static ProcessBuilder getProcessBuilder(String cmd) throws Exception {
 
 	@Override
 	public List<String> listSnapshots(VirtualMachine virtualMachine) throws Exception {
-		return new ArrayList<String>();
-		//FIXME TODO
+
+		List<String> snapshotsList = new ArrayList<String>();
+		List<Snapshot> snapshots = new HypervisorConfigurationFile(virtualMachine.getName()).getSnapshots();
+		
+		for (Snapshot snapshot : snapshots) {
+			snapshotsList.add(snapshot.getName());
+		}
+		
+ 		return snapshotsList;
 	}
 
 	@Override
 	public List<String> listSharedFolders(VirtualMachine virtualMachine) throws Exception {
-		return new ArrayList<String>();
+		List<String> shareNames = new LinkedList<String>();
+		for ( SharedFolder sharedFolder : new HypervisorConfigurationFile(virtualMachine.getName()).getSharedFolders() ){
+			shareNames.add(sharedFolder.getName());
+		}
+		return shareNames;
+	}
+
+	
+	
+	@Override
+	public void unmountSharedFolder(VirtualMachine virtualMachine, String shareName)
+	throws Exception {
+		
+		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
+			throw new Exception("Unable to unmount shared folder. Machine is not started.");
+		}
+		
+		String hostPath = HypervisorUtils.getSharedFolder(virtualMachine, shareName).getHostpath();
+		unmountSharedFolderByHostPath(virtualMachine, hostPath);
+	}
+	
+	private void unmountSharedFolderByHostPath(VirtualMachine virtualMachine, String hostPath)
+			throws Exception {
+		ProcessBuilder unmountSFProcess = getProcessBuilder("/usr/bin/sudo /bin/umount " + hostPath);
+		HypervisorUtils.runAndCheckProcess(unmountSFProcess);		
 	}
 
 }

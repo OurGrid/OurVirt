@@ -8,19 +8,16 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import org.ourgrid.virt.model.ExecutionResult;
+import org.ourgrid.virt.model.SharedFolder;
+import org.ourgrid.virt.model.Snapshot;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
 import org.ourgrid.virt.model.VirtualMachineStatus;
+import org.ourgrid.virt.strategies.HypervisorConfigurationFile;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
-
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 public class VBoxStrategy implements HypervisorStrategy {
 
@@ -94,7 +91,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 		
 		ProcessBuilder modifyVMBuilder = getProcessBuilder(
 				"modifyvm " + virtualMachine.getName() + " --memory " + memory + 
-				" --acpi on --boot1 disk --vrde off");
+				" --acpi on --boot1 disk --vrde off --pae on");
 		HypervisorUtils.runAndCheckProcess(modifyVMBuilder);
 		
 		ProcessBuilder createControllerBuilder = getProcessBuilder(
@@ -142,6 +139,11 @@ public class VBoxStrategy implements HypervisorStrategy {
 	
 	@Override
 	public void start(VirtualMachine virtualMachine) throws Exception {
+		
+		if (status(virtualMachine) == VirtualMachineStatus.RUNNING) {
+			return;
+		}
+		
 		startVirtualMachine(virtualMachine);
 		checkOSStarted(virtualMachine);
 	}
@@ -151,7 +153,11 @@ public class VBoxStrategy implements HypervisorStrategy {
 			String shareName)
 			throws Exception {
 		
-		String guestPath = getGuestPath(virtualMachine, shareName);
+		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
+			throw new Exception("Unable to mount shared folder. Machine is not started.");
+		}
+		
+		String guestPath = HypervisorUtils.getSharedFolder(virtualMachine, shareName).getGuestpath();
 		
 		if (guestPath == null) {
 			throw new IllegalArgumentException("Shared folder [" + shareName + "] does not exist.");
@@ -194,12 +200,14 @@ public class VBoxStrategy implements HypervisorStrategy {
 						copyMountScriptBuilder);
 				
 				if (executionResult.getReturnValue() != ExecutionResult.OK && 
-						!executionResult.getStdErr().contains(VBoxStrategy.COPY_ERROR)) {
+						!executionResult.getStdErr().toString().contains(VBoxStrategy.COPY_ERROR)) {
+					//We are checking if COPY_ERROR was sent because of a bug where the copy is done
+					//properly although it still spawns this error message with exit value different than 0
 					throw new Exception(executionResult.getStdErr().toString());
 				}
 
 				HypervisorUtils.checkReturnValue(
-						exec(virtualMachine, "/bin/bash -x " + mountScriptFilePath));
+						exec(virtualMachine, "/bin/bash " + mountScriptFilePath));
 
 			} finally {
 				mountFile.delete();
@@ -208,25 +216,6 @@ public class VBoxStrategy implements HypervisorStrategy {
 		} else {
 			throw new Exception("Guest OS not supported");
 		}
-	}
-
-	private static String getGuestPath(VirtualMachine virtualMachine, String shareName) {
-		String sharedFolders = virtualMachine.getProperty(
-				VirtualMachineConstants.SHARED_FOLDERS);
-		
-		JsonArray sharedFoldersJson = (JsonArray) new JsonParser().parse(sharedFolders);
-		
-		for (int i = 0; i < sharedFoldersJson.size(); i++) {
-			
-			JsonObject sharedFolderJson = (JsonObject) sharedFoldersJson.get(i);
-			String name = sharedFolderJson.get("name").getAsString();
-			
-			if (name.equals(shareName)) {
-				return sharedFolderJson.get("guestpath").getAsString();
-			}
-		}
-		
-		return null;
 	}
 
 	private void startVirtualMachine(VirtualMachine virtualMachine)
@@ -246,7 +235,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 			
 		} else {
 			ProcessBuilder startProcessBuilder = getProcessBuilder(
-					"startvm " + virtualMachine.getName()); //+ " --type headless");
+					"startvm " + virtualMachine.getName() + " --type headless");
 			HypervisorUtils.runAndCheckProcess(startProcessBuilder);
 		}
 	}
@@ -278,6 +267,10 @@ public class VBoxStrategy implements HypervisorStrategy {
 	@Override
 	public void stop(VirtualMachine virtualMachine) throws Exception {
 		
+		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
+			return;
+		}
+		
 		ProcessBuilder acpiPowerProcessBuilder = getProcessBuilder(
 				"controlvm " + virtualMachine.getName() + " acpipowerbutton");
 		HypervisorUtils.runAndCheckProcess(acpiPowerProcessBuilder);
@@ -289,6 +282,10 @@ public class VBoxStrategy implements HypervisorStrategy {
 	
 	@Override
 	public ExecutionResult exec(VirtualMachine virtualMachine, String command) throws Exception {
+		
+		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
+			throw new Exception("Unable to execute command. Machine is not started.");
+		}
 		
 		String user = virtualMachine.getConfiguration().get(
 				VirtualMachineConstants.GUEST_USER);
@@ -319,16 +316,37 @@ public class VBoxStrategy implements HypervisorStrategy {
 	}
 	
 	@Override
-	public void takeSnapshot(String vMName, String snapshotName)
+	public void takeSnapshot(VirtualMachine virtualMachine, String snapshotName)
 			throws Exception {
+		String vMName = virtualMachine.getName();
+		
+		if (HypervisorUtils.snapshotExists(virtualMachine, snapshotName)) {
+			throw new Exception("Snapshot [ " + snapshotName + " ] already exists " +
+					"for virtual machine [ " + vMName + " ].");
+		}
+		
 		ProcessBuilder takeSnapshotProcessBuilder = getProcessBuilder(
 				"snapshot " + vMName + " take " + snapshotName);
 		HypervisorUtils.runAndCheckProcess(takeSnapshotProcessBuilder);
+		
+ 		Snapshot snapshot = new Snapshot(snapshotName);
+ 		new HypervisorConfigurationFile(virtualMachine.getName()).addSnapshot(snapshot);
 	}
 	
 	@Override
-	public void restoreSnapshot(String vMName, String snapshotName)
+	public void restoreSnapshot(VirtualMachine virtualMachine, String snapshotName)
 			throws Exception {
+		if (status(virtualMachine).equals(VirtualMachineStatus.RUNNING)) {
+			stop(virtualMachine);
+		}
+		
+		String vMName = virtualMachine.getName();
+		
+		if (! HypervisorUtils.snapshotExists(virtualMachine, snapshotName)) {
+			throw new Exception("Snapshot [ " + snapshotName + " ] does not exist for " +
+					"virtual machine [ " + virtualMachine.getName() + " ].");
+		}
+		
 		ProcessBuilder restoreSnapshotProcessBuilder = getProcessBuilder(
 				"snapshot " + vMName + " restore " + snapshotName);
 		HypervisorUtils.runAndCheckProcess(restoreSnapshotProcessBuilder);
@@ -336,6 +354,11 @@ public class VBoxStrategy implements HypervisorStrategy {
 	
 	@Override
 	public void destroy(VirtualMachine virtualMachine) throws Exception {
+		
+		if (status(virtualMachine).equals(VirtualMachineStatus.RUNNING)) {
+			stop(virtualMachine);
+		}
+		
 		ProcessBuilder destroyProcessBuilder = getProcessBuilder(
 				"unregistervm " + virtualMachine.getName() + " --delete");
 		HypervisorUtils.runAndCheckProcess(destroyProcessBuilder);
@@ -358,7 +381,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 			
 		} else if (HypervisorUtils.isLinuxHost()) {
 			
-			List<String> matchList = splitCmdLine(vboxManageCmdLine); 
+			List<String> matchList = HypervisorUtils.splitCmdLine(vboxManageCmdLine); 
 			processBuilder =  new ProcessBuilder(matchList.toArray(new String[]{}));
 			
 		} else {
@@ -372,25 +395,6 @@ public class VBoxStrategy implements HypervisorStrategy {
 		return processBuilder;
 	}
 
-	private static List<String> splitCmdLine(String vboxManageCmdLine) {
-		List<String> matchList = new ArrayList<String>();
-		Pattern regex = Pattern.compile("[^\\s\"']+|\"([^\"]*)\"|'([^']*)'");
-		Matcher regexMatcher = regex.matcher(vboxManageCmdLine);
-		while (regexMatcher.find()) {
-		    if (regexMatcher.group(1) != null) {
-		        // Add double-quoted string without the quotes
-		        matchList.add(regexMatcher.group(1));
-		    } else if (regexMatcher.group(2) != null) {
-		        // Add single-quoted string without the quotes
-		        matchList.add(regexMatcher.group(2));
-		    } else {
-		        // Add unquoted word
-		        matchList.add(regexMatcher.group());
-		    }
-		}
-		return matchList;
-	}
-	
 	@Override
 	public void createSharedFolder(VirtualMachine virtualMachine,
 			String shareName, String hostPath, String guestPath) throws Exception {
@@ -401,26 +405,8 @@ public class VBoxStrategy implements HypervisorStrategy {
 				" --name " + shareName); 
 		HypervisorUtils.runAndCheckProcess(versionProcessBuilder);
 		
-		String sharedFolders = virtualMachine.getProperty(
-				VirtualMachineConstants.SHARED_FOLDERS);
-		JsonArray sharedFoldersArray = null;
-		
-		if (sharedFolders == null) {
-			sharedFoldersArray = new JsonArray();
-		} else {
-			sharedFoldersArray = (JsonArray) new JsonParser().parse(sharedFolders);
-		}
-		
-		JsonObject sfObject = new JsonObject();
-		sfObject.addProperty("name", shareName);
-		sfObject.addProperty("hostpath", hostPath);
-		sfObject.addProperty("guestpath", guestPath);
-		
-		sharedFoldersArray.add(sfObject);
-		
-		virtualMachine.setProperty(
-				VirtualMachineConstants.SHARED_FOLDERS, 
-				sharedFoldersArray.toString());
+		SharedFolder sharedFolder = new SharedFolder(shareName, hostPath, guestPath);
+		new HypervisorConfigurationFile(virtualMachine.getName()).addSharedFolder(sharedFolder);		
 	}
 
 	private List<String> list(boolean onlyRunning) throws Exception {
@@ -475,45 +461,91 @@ public class VBoxStrategy implements HypervisorStrategy {
 
 	@Override
 	public List<String> listSnapshots(VirtualMachine virtualMachine) throws Exception {
-		ProcessBuilder vmInfoBuilder = getProcessBuilder(
-				"showvminfo \"" + virtualMachine.getName() + "\" --machinereadable");
-		ExecutionResult vmInfoResult = HypervisorUtils.runProcess(vmInfoBuilder);
 		
-		HypervisorUtils.checkReturnValue(vmInfoResult);
+		List<String> snapshotsList = new ArrayList<String>();
+		List<Snapshot> snapshots = new HypervisorConfigurationFile(virtualMachine.getName()).getSnapshots();
 		
-		List<String> vmInfoOutput = vmInfoResult.getStdOut();
-		List<String> snapshots = new LinkedList<String>();
-		
-		for (String vmInfoDetail : vmInfoOutput) {
-			if (vmInfoDetail.trim().startsWith("SnapshotName")) {
-				snapshots.add(vmInfoDetail.substring(
-						vmInfoDetail.indexOf('=') + 2, vmInfoDetail.length() - 1));
-			}
+		for (Snapshot snapshot : snapshots) {
+			snapshotsList.add(snapshot.getName());
 		}
 		
-		return snapshots;
+ 		return snapshotsList;
 	}
 
 	@Override
 	public List<String> listSharedFolders(VirtualMachine virtualMachine) throws Exception {
+
+		List<String> shareNames = new LinkedList<String>();
+		for ( SharedFolder sharedFolder : new HypervisorConfigurationFile(virtualMachine.getName()).getSharedFolders() ){
+			shareNames.add(sharedFolder.getName());
+		}
+		return shareNames;
+	}
+
+	@Override
+	public void unmountSharedFolder(VirtualMachine virtualMachine, String shareName)
+			throws Exception {
 		
-		ProcessBuilder vmInfoBuilder = getProcessBuilder(
-				"showvminfo \"" + virtualMachine.getName() + "\" --machinereadable");
-		ExecutionResult vmInfoResult = HypervisorUtils.runProcess(vmInfoBuilder);
-		
-		HypervisorUtils.checkReturnValue(vmInfoResult);
-		
-		List<String> vmInfoOutput = vmInfoResult.getStdOut();
-		List<String> sharedFolders = new LinkedList<String>();
-		
-		for (String vmInfoDetail : vmInfoOutput) {
-			if (vmInfoDetail.trim().startsWith("SharedFolderName")) {
-				sharedFolders.add(vmInfoDetail.substring(
-						vmInfoDetail.indexOf('=') + 2, vmInfoDetail.length() - 1));
-			}
+		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
+			throw new Exception("Unable to unmount shared folder. Machine is not started.");
 		}
 		
-		return sharedFolders;
+		String guestPath = HypervisorUtils.getSharedFolder(virtualMachine, shareName).getGuestpath();
+		
+		if (guestPath == null) {
+			throw new IllegalArgumentException("Shared folder [" + shareName + "] does not exist.");
+		}
+		
+		String password = virtualMachine.getConfiguration().get(
+				VirtualMachineConstants.GUEST_PASSWORD);
+
+		String user = virtualMachine.getConfiguration().get(
+				VirtualMachineConstants.GUEST_USER);
+		
+		if (HypervisorUtils.isWindowsGuest(virtualMachine)) {
+			
+			//TODO unmount for Windows guest
+			
+		} else if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
+			
+			long randId = Math.abs(new Random().nextLong());
+			String unmountScriptFileName = "unmount" + randId + ".sh";
+			String unmountScriptFilePath = "/tmp/" + unmountScriptFileName;
+
+			File unmountFile = new File(unmountScriptFilePath);
+			FileWriter unmountFileWriter = new FileWriter(unmountFile);
+			unmountFileWriter.write(
+					"sudo umount " + guestPath + "; " +
+					"rm " + unmountScriptFilePath);
+			unmountFileWriter.close();
+
+			try {
+
+				ProcessBuilder copyUnmountScriptBuilder = getProcessBuilder(
+						"guestcontrol " + virtualMachine.getName() +  
+						" copyto \"" + unmountFile.getCanonicalPath() + "\" /tmp/" + 
+						" --username " + user + " --password " + password);
+				ExecutionResult executionResult = HypervisorUtils.runProcess(
+						copyUnmountScriptBuilder);
+				
+				if (executionResult.getReturnValue() != ExecutionResult.OK && 
+						!executionResult.getStdErr().toString().contains(VBoxStrategy.COPY_ERROR)) {
+					//We are checking if COPY_ERROR was sent because of a bug where the copy is done
+					//properly although it still spawns this error message with exit value different than 0
+					throw new Exception(executionResult.getStdErr().toString());
+				}
+
+				HypervisorUtils.checkReturnValue(
+						exec(virtualMachine, "/bin/bash " + unmountScriptFilePath));
+
+			} finally {
+				unmountFile.delete();
+			}
+			
+		} else {
+			throw new Exception("Guest OS not supported");
+		}
+		
 	}
 
 }

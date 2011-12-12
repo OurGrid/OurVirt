@@ -3,6 +3,10 @@ package org.ourgrid.virt.model;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * This class represents a virtual machine, containing its name and its configurations map.
+ * It is used for dealing with virtual machine in the system with ease.
+ */
 public class VirtualMachine {
 
 	private String name;

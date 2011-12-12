@@ -7,6 +7,10 @@ import org.ourgrid.virt.model.HypervisorType;
 import org.ourgrid.virt.strategies.vbox.VBoxStrategy;
 import org.ourgrid.virt.strategies.vserver.VServerStrategy;
 
+/**
+ * This class uses the Factory design pattern
+ * TODO
+ */
 public class HypervisorStrategyFactory {
 
 	private Map<HypervisorType, HypervisorStrategy> strategies = new HashMap<HypervisorType, HypervisorStrategy>();

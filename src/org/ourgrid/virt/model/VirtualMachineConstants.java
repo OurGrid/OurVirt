@@ -16,6 +16,4 @@ public class VirtualMachineConstants {
 	
 	public static String DISK_IMAGE_PATH = "diskimagepath";
 	
-	public static String SHARED_FOLDERS = "sharedfolders";
-	
 }
