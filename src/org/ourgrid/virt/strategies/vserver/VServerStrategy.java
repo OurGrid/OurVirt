@@ -19,7 +19,7 @@ import org.ourgrid.virt.strategies.HypervisorUtils;
 
 public class VServerStrategy implements HypervisorStrategy {
 	
-	private final int VSERVER_STOPPED_EXIT_VALUE = 3; 
+	private final int VSERVER_STOPPED_EXIT_VALUE = 3;
 
 	@Override
 	public void create(VirtualMachine virtualMachine) throws Exception {
@@ -359,7 +359,7 @@ public class VServerStrategy implements HypervisorStrategy {
 	private void unmountSharedFolderByHostPath(VirtualMachine virtualMachine, String hostPath)
 			throws Exception {
 		ProcessBuilder unmountSFProcess = getProcessBuilder("/usr/bin/sudo /bin/umount " + hostPath);
-		HypervisorUtils.runAndCheckProcess(unmountSFProcess);		
+		HypervisorUtils.runAndCheckProcess(unmountSFProcess);
 	}
 
 }
