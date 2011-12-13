@@ -18,6 +18,7 @@ import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorConfigurationFile;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
+import org.ourgrid.virt.strategies.OS;
 
 public class VBoxStrategy implements HypervisorStrategy {
 
@@ -546,6 +547,19 @@ public class VBoxStrategy implements HypervisorStrategy {
 			throw new Exception("Guest OS not supported");
 		}
 		
+	}
+
+	@Override
+	public void prepareEnvironment(String userName) throws Exception {
+		if ( OS.isFamilyUnix() ){
+			HypervisorUtils.appendLineToSudoersFile(userName, "/usr/bin/VBoxManage");
+		}
+		else if ( OS.isFamilyWindows() ){
+			//TODO verify if something is needed in order to VBox manage virtual machines properly
+		}
+		else{
+			throw new Exception("Unable to prepare environment. OS not supported by VServer hypervisor.");
+		}
 	}
 
 }

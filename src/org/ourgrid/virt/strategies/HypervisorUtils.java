@@ -1,5 +1,9 @@
 package org.ourgrid.virt.strategies;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -22,6 +26,8 @@ import org.ourgrid.virt.model.VirtualMachineConstants;
 
 public class HypervisorUtils {
 
+	public static final String LINUX_PERMISSIONS_FILE = "/etc/sudoers";
+	
 	/**
 	 * Runs a process and checks whether the process finished with exit value 0.
 	 * If not, it throws an exception.
@@ -251,4 +257,15 @@ public class HypervisorUtils {
 		
 		return snapshot != null;
 	}
+	
+	public static void appendLineToSudoersFile(String userName, String line)
+			throws IOException, FileNotFoundException {
+		String sudoers = IOUtils.toString(new FileReader(LINUX_PERMISSIONS_FILE));
+		String permissionLine = userName + " ALL= NOPASSWD: " + line;
+		if ( !sudoers.contains(permissionLine) ){
+			sudoers+= permissionLine;
+		}
+		IOUtils.write(sudoers, new FileOutputStream(LINUX_PERMISSIONS_FILE));
+	}
+
 }
