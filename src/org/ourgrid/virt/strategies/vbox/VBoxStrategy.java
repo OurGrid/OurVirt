@@ -18,7 +18,7 @@ import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorConfigurationFile;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
-import org.ourgrid.virt.strategies.OS;
+import org.ourgrid.virt.strategies.LinuxUtils;
 
 public class VBoxStrategy implements HypervisorStrategy {
 
@@ -551,10 +551,10 @@ public class VBoxStrategy implements HypervisorStrategy {
 
 	@Override
 	public void prepareEnvironment(String userName) throws Exception {
-		if ( OS.isFamilyUnix() ){
-			HypervisorUtils.appendLineToSudoersFile(userName, "/usr/bin/VBoxManage");
+		if ( HypervisorUtils.isLinuxHost() ){
+			LinuxUtils.appendLineToSudoersFile(userName, "/usr/bin/VBoxManage");
 		}
-		else if ( OS.isFamilyWindows() ){
+		else if ( HypervisorUtils.isWindowsHost() ){
 			//TODO verify if something is needed in order to VBox manage virtual machines properly
 		}
 		else{

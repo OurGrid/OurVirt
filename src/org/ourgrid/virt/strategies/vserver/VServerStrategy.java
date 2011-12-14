@@ -16,7 +16,7 @@ import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorConfigurationFile;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
-import org.ourgrid.virt.strategies.OS;
+import org.ourgrid.virt.strategies.LinuxUtils;
 
 public class VServerStrategy implements HypervisorStrategy {
 	
@@ -365,8 +365,8 @@ public class VServerStrategy implements HypervisorStrategy {
 
 	@Override
 	public void prepareEnvironment(String userName) throws Exception {
-		if ( OS.isFamilyUnix() ){
-			HypervisorUtils.appendLineToSudoersFile(userName, "/usr/sbin/vnamespace,/usr/sbin/vserver");
+		if ( HypervisorUtils.isLinuxHost() ){
+			LinuxUtils.appendLineToSudoersFile(userName, "/usr/sbin/vnamespace,/usr/sbin/vserver");
 		}
 		else {
 			throw new Exception("Unable to prepare environment. OS not supported by VServer hypervisor.");
