@@ -49,6 +49,7 @@ public class VServerStrategy implements HypervisorStrategy {
 		ProcessBuilder buildVMBuilder = getVServerProcessBuilder(
 				vmName+" build -m template -- -t "+imagePath+" -d "+osVersion.toLowerCase());
 		HypervisorUtils.runAndCheckProcess(buildVMBuilder);
+		new HypervisorConfigurationFile(vmName);
 	}
 
 	private boolean checkWhetherMachineExists(VirtualMachine virtualMachine) {
@@ -264,7 +265,7 @@ public class VServerStrategy implements HypervisorStrategy {
 		String vmName = virtualMachine.getName();
 		ExecutionResult createSharedFolderDir = HypervisorUtils.runProcess(
 				getProcessBuilder("/usr/bin/sudo /bin/mkdir -p /etc/vservers/.defaults/vdirbase/" + vmName + "/" + guestPath));
-		HypervisorUtils.checkReturnValue(createSharedFolderDir);		
+		HypervisorUtils.checkReturnValue(createSharedFolderDir);
 		
 		ExecutionResult fstabEntry = HypervisorUtils.runProcess(
 				getProcessBuilder("echo " + hostPath + " " + guestPath + " none bind 0 0 >> /etc/vservers/" + vmName + "/fstab"));
@@ -372,7 +373,7 @@ public class VServerStrategy implements HypervisorStrategy {
 	@Override
 	public void prepareEnvironment(String userName) throws Exception {
 		if ( HypervisorUtils.isLinuxHost() ){
-			LinuxUtils.appendLineToSudoersFile(userName, "/usr/sbin/vnamespace,/usr/sbin/vserver");
+			LinuxUtils.appendLineToSudoersFile(userName, "/usr/sbin/vnamespace,/usr/sbin/vserver,/bin/mkdir,/bin/echo,/bin/mount,/bin/umount");
 		}
 		else {
 			throw new Exception("Unable to prepare environment. OS not supported by VServer hypervisor.");

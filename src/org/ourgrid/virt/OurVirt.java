@@ -24,7 +24,6 @@ public class OurVirt {
 	private Map<String, VirtualMachine> vMCache = new HashMap<String, VirtualMachine>();
 	private HypervisorStrategyFactory factory = new HypervisorStrategyFactory();
 	
-	
 	/**
 	 * Registers a new virtual machine with the specified name and configuration in OurVirt volatile memory.
 	 * It does not make the specified hypervisor create the virtual machine.
