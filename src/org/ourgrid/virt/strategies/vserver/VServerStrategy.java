@@ -302,6 +302,12 @@ public class VServerStrategy implements HypervisorStrategy {
 	public VirtualMachineStatus status(VirtualMachine virtualMachine)
 			throws Exception {
 		
+		boolean vmExists = checkWhetherMachineExists(virtualMachine);
+		
+		if (!vmExists){
+			return VirtualMachineStatus.NOT_CREATED;
+		}
+		
 		ProcessBuilder statusProcess = getVMProcessBuilder(virtualMachine, "status");
 		ExecutionResult statusInfo = HypervisorUtils.runProcess(statusProcess);
 		

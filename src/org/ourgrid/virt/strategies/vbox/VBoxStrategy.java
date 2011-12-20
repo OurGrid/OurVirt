@@ -457,7 +457,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 			return VirtualMachineStatus.POWERED_OFF;
 		}
 		
-		return VirtualMachineStatus.NOT_REGISTERED;
+		return VirtualMachineStatus.NOT_CREATED;
 	}
 
 	@Override
