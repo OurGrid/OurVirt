@@ -9,6 +9,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 
+import org.apache.commons.io.IOUtils;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.SharedFolder;
 import org.ourgrid.virt.model.Snapshot;
@@ -22,6 +23,7 @@ import org.ourgrid.virt.strategies.LinuxUtils;
 
 public class VBoxStrategy implements HypervisorStrategy {
 
+	private static final String TMP_START_VM_VBS = "/tmp/start-vm.vbs";
 	private static final String FILE_ERROR = "VBOX_E_FILE_ERROR";
 	private static final String OBJECT_IN_USE = "VBOX_E_OBJECT_IN_USE";
 	private static final String INVALID_ARG = "E_INVALIDARG";
@@ -228,8 +230,11 @@ public class VBoxStrategy implements HypervisorStrategy {
 			throws IOException, Exception {
 
 		if (HypervisorUtils.isWindowsHost()) {
+			
+			extractStartVBS();
+			
 			ProcessBuilder vbsProcessBuilder = new ProcessBuilder("wscript", 
-					new File(getClass().getResource("start-vm.vbs").getFile()).getCanonicalPath(), virtualMachine.getName());
+					new File(TMP_START_VM_VBS).getAbsolutePath(), virtualMachine.getName());
 			vbsProcessBuilder.directory(new File(
 					System.getenv().get("VBOX_INSTALL_PATH")));
 			ExecutionResult vbsExecutionResult = 
@@ -243,6 +248,14 @@ public class VBoxStrategy implements HypervisorStrategy {
 			ProcessBuilder startProcessBuilder = getProcessBuilder(
 					"startvm " + virtualMachine.getName() + " --type headless");
 			HypervisorUtils.runAndCheckProcess(startProcessBuilder);
+		}
+	}
+
+	private void extractStartVBS() throws IOException {
+		if (!new File(TMP_START_VM_VBS).exists()) {
+			FileWriter fileWriter = new FileWriter(TMP_START_VM_VBS);
+			IOUtils.copy(getClass().getResourceAsStream("start-vm.vbs"), fileWriter);
+			fileWriter.close();
 		}
 	}
 
