@@ -21,6 +21,7 @@ import org.ourgrid.virt.strategies.LinuxUtils;
 public class VServerStrategy implements HypervisorStrategy {
 	
 	private final int VSERVER_STOPPED_EXIT_VALUE = 3;
+	private final int START_RECHECK_DELAY = 10; 
 
 	@Override
 	public void create(VirtualMachine virtualMachine) throws Exception {
@@ -102,7 +103,16 @@ public class VServerStrategy implements HypervisorStrategy {
 	}
 
 	private void checkOSStarted(VirtualMachine virtualMachine)
-			throws InterruptedException {
+			throws Exception {
+		
+		String startTimeout = virtualMachine.getProperty(VirtualMachineConstants.START_TIMEOUT);
+		boolean checkTimeout = startTimeout != null;
+		
+		int remainingTries = 0;
+		if (checkTimeout) {
+			remainingTries = Integer.parseInt(startTimeout) / START_RECHECK_DELAY;
+		}
+		
 		while (true) {
 			try {
 
@@ -112,9 +122,12 @@ public class VServerStrategy implements HypervisorStrategy {
 
 				break;
 			} catch (Exception e) {
+				if (checkTimeout && remainingTries-- == 0) {
+					throw e;
+				}
 			}
 
-			Thread.sleep(1000 * 10);
+			Thread.sleep(1000 * START_RECHECK_DELAY);
 		}
 	}
 

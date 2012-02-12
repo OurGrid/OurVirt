@@ -17,7 +17,7 @@ public class Main {
 	}
 
 	private static void runVmServer(OurVirt ourVirt) throws Exception {
-		String vmName = "abmar-vm-server";
+		String vmName = "owvbox_1";
 		
 		Map<String, String> conf = new HashMap<String, String>();
 		conf.put(VirtualMachineConstants.GUEST_USER, "worker");
@@ -28,6 +28,7 @@ public class Main {
 		conf.put(VirtualMachineConstants.DISK_TYPE, "sata");
 		conf.put(VirtualMachineConstants.DISK_IMAGE_PATH, 
 				"C:\\Users\\Abmar\\VirtualBox VMs\\abmar-vm-server\\abmar-vm-server.vdi");
+		conf.put(VirtualMachineConstants.START_TIMEOUT, "60");
 		
 		ourVirt.register(vmName, conf);
 		

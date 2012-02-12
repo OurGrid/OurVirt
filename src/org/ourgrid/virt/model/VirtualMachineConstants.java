@@ -16,4 +16,9 @@ public class VirtualMachineConstants {
 	
 	public static String DISK_IMAGE_PATH = "diskimagepath";
 	
+	/**
+	 * In seconds
+	 */
+	public static String START_TIMEOUT = "starttimeout";
+	
 }

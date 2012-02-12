@@ -31,6 +31,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 	private static final String COPY_ERROR = "VBOX_E_IPRT_ERROR";
 
 	private static final String DISK_CONTROLLER_NAME = "Disk Controller";
+	private final int START_RECHECK_DELAY = 10;
 
 	@Override
 	public void create(VirtualMachine virtualMachine) throws Exception {
@@ -260,7 +261,16 @@ public class VBoxStrategy implements HypervisorStrategy {
 	}
 
 	private void checkOSStarted(VirtualMachine virtualMachine)
-			throws InterruptedException {
+			throws Exception {
+		
+		String startTimeout = virtualMachine.getProperty(VirtualMachineConstants.START_TIMEOUT);
+		boolean checkTimeout = startTimeout != null;
+		
+		int remainingTries = 0;
+		if (checkTimeout) {
+			remainingTries = Integer.parseInt(startTimeout) / START_RECHECK_DELAY;
+		}
+		
 		while (true) {
 			try {
 
@@ -277,9 +287,13 @@ public class VBoxStrategy implements HypervisorStrategy {
 				}
 
 				break;
-			} catch (Exception e) {}
+			} catch (Exception e) {
+				if (checkTimeout && remainingTries-- == 0) {
+					throw e;
+				}
+			}
 
-			Thread.sleep(1000 * 10);
+			Thread.sleep(1000 * START_RECHECK_DELAY);
 		}
 	}
 
