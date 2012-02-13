@@ -90,7 +90,7 @@ public class VServerStrategy implements HypervisorStrategy {
 		HypervisorUtils.checkReturnValue(createSharedFolderDir);
 		
 		ExecutionResult mountProcess = HypervisorUtils.runProcess(
-				getProcessBuilder("sudo vnamespace -e " + vmName + " -- mount --bind " + hostPath + " " + guestPath));
+				getProcessBuilder("/usr/bin/sudo /usr/sbin/vnamespace -e " + vmName + " -- mount --bind " + hostPath + " " + guestPath));
  		HypervisorUtils.checkReturnValue(mountProcess);
 	}
 
