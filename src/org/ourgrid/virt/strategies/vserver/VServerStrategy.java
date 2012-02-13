@@ -85,12 +85,9 @@ public class VServerStrategy implements HypervisorStrategy {
 		String hostPath = sharedFolder.getHostpath();
 		
 		String vmName = virtualMachine.getName();
-		ExecutionResult createSharedFolderDir = HypervisorUtils.runProcess(
-				getProcessBuilder("/usr/bin/sudo /bin/mkdir -p /etc/vservers/.defaults/vdirbase/" + vmName + "/" + guestPath));
-		HypervisorUtils.checkReturnValue(createSharedFolderDir);
-		
 		ExecutionResult mountProcess = HypervisorUtils.runProcess(
-				getProcessBuilder("/usr/bin/sudo /usr/sbin/vnamespace -e " + vmName + " -- mount --bind " + hostPath + " " + guestPath));
+				new ProcessBuilder("/usr/bin/sudo", "/usr/sbin/vnamespace -e " + vmName + 
+						" -- mount --bind " + hostPath + " " + guestPath));
  		HypervisorUtils.checkReturnValue(mountProcess);
 	}
 
@@ -273,6 +270,12 @@ public class VServerStrategy implements HypervisorStrategy {
 	@Override
 	public void createSharedFolder(VirtualMachine virtualMachine, String shareName,
 			String hostPath, String guestPath) throws Exception {
+		
+		String vmName = virtualMachine.getName();
+		ExecutionResult createSharedFolderDir = HypervisorUtils.runProcess(
+				getProcessBuilder("/usr/bin/sudo /usr/sbin/vnamespace -e " + vmName + 
+						" -- mkdir -p /etc/vservers/.defaults/vdirbase/" + vmName + "/" + guestPath));
+		HypervisorUtils.checkReturnValue(createSharedFolderDir);
 		
 		SharedFolder sharedFolder = new SharedFolder(shareName, hostPath, guestPath);
 		new HypervisorConfigurationFile(virtualMachine.getName()).addSharedFolder(sharedFolder);
