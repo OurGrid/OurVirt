@@ -86,7 +86,7 @@ public class VServerStrategy implements HypervisorStrategy {
 		
 		String vmName = virtualMachine.getName();
 		ExecutionResult mountProcess = HypervisorUtils.runProcess(
-				new ProcessBuilder("/usr/bin/sudo", "/usr/sbin/vnamespace -e " + vmName + 
+				new ProcessBuilder("/usr/bin/sudo", "/usr/sbin/vnamespace", "-e " + vmName, 
 						" -- mount --bind " + hostPath + " " + guestPath));
  		HypervisorUtils.checkReturnValue(mountProcess);
 	}
