@@ -85,14 +85,13 @@ public class VServerStrategy implements HypervisorStrategy {
 		String hostPath = sharedFolder.getHostpath();
 		
 		String vmName = virtualMachine.getName();
-		ExecutionResult mountProcess = HypervisorUtils.runProcess(
-				getProcessBuilder("sudo mount --bind " + hostPath + " /etc/vservers/.defaults/vdirbase/" + vmName + "/" + guestPath ));
- 		HypervisorUtils.checkReturnValue(mountProcess);
- 		
- 		ExecutionResult restartProcess = HypervisorUtils.runProcess(
-				getVServerProcessBuilder( vmName + " restart"));
- 		HypervisorUtils.checkReturnValue(restartProcess);
+		ExecutionResult createSharedFolderDir = HypervisorUtils.runProcess(
+				getProcessBuilder("/usr/bin/sudo /bin/mkdir -p /etc/vservers/.defaults/vdirbase/" + vmName + "/" + guestPath));
+		HypervisorUtils.checkReturnValue(createSharedFolderDir);
 		
+		ExecutionResult mountProcess = HypervisorUtils.runProcess(
+				getProcessBuilder("sudo vnamespace -e " + vmName + " -- mount --bind " + hostPath + " " + guestPath));
+ 		HypervisorUtils.checkReturnValue(mountProcess);
 	}
 
 	private void startVirtualMachine(VirtualMachine virtualMachine)
@@ -274,16 +273,7 @@ public class VServerStrategy implements HypervisorStrategy {
 	@Override
 	public void createSharedFolder(VirtualMachine virtualMachine, String shareName,
 			String hostPath, String guestPath) throws Exception {
-
-		String vmName = virtualMachine.getName();
-		ExecutionResult createSharedFolderDir = HypervisorUtils.runProcess(
-				getProcessBuilder("/usr/bin/sudo /bin/mkdir -p /etc/vservers/.defaults/vdirbase/" + vmName + "/" + guestPath));
-		HypervisorUtils.checkReturnValue(createSharedFolderDir);
 		
-		ExecutionResult fstabEntry = HypervisorUtils.runProcess(
-				getProcessBuilder("echo " + hostPath + " " + guestPath + " none bind 0 0 >> /etc/vservers/" + vmName + "/fstab"));
-		HypervisorUtils.checkReturnValue(fstabEntry);
-
 		SharedFolder sharedFolder = new SharedFolder(shareName, hostPath, guestPath);
 		new HypervisorConfigurationFile(virtualMachine.getName()).addSharedFolder(sharedFolder);
 	}
