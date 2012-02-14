@@ -248,4 +248,17 @@ public class OurVirt {
 	public void unmountSharedFolder(HypervisorType hypervisor, String vmName, String shareName) throws Exception {
 		factory.get(hypervisor).unmountSharedFolder(getRegisteredVM(vmName), shareName);
 	}
+	
+	/**
+	 * Prepares the environment for the user indicated by the user parameter
+	 * to use the hypervisor type. You will probably need admin privileges
+	 * to run this method. 
+	 * @param hypervisor the hypervisor you want to prepare the environment for
+	 * @param userName the user that will be ready to use the hypervisor methods
+	 * @throws Exception probably if you don't have admin privileges or the underlying
+	 * syetem is not supported by OurVirt.
+	 */
+	public void prepareEnvironment(HypervisorType hypervisor, String userName) throws Exception {
+		factory.get(hypervisor).prepareEnvironment(userName);
+	}
 }

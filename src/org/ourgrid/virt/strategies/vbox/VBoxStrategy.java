@@ -271,28 +271,37 @@ public class VBoxStrategy implements HypervisorStrategy {
 			remainingTries = Integer.parseInt(startTimeout) / START_RECHECK_DELAY;
 		}
 		
+		
 		while (true) {
+			
+			Exception ex = null;
+			
 			try {
 
 				if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
 					ExecutionResult executionResult = exec(
 							virtualMachine, "/bin/echo check-started");
 					HypervisorUtils.checkReturnValue(executionResult);
+					break;
 				} else if (HypervisorUtils.isWindowsGuest(virtualMachine)) {
 					ExecutionResult executionResult = exec(
 							virtualMachine, "Echo check-started");
 					HypervisorUtils.checkReturnValue(executionResult);
+					break;
 				} else {
-					throw new Exception("Guest OS not supported");
+					ex = new Exception("Guest OS not supported");
 				}
-
-				break;
+				
 			} catch (Exception e) {
 				if (checkTimeout && remainingTries-- == 0) {
-					throw e;
+					ex = e;
 				}
 			}
 
+			if (ex != null) {
+				throw ex;
+			}
+			
 			Thread.sleep(1000 * START_RECHECK_DELAY);
 		}
 	}
