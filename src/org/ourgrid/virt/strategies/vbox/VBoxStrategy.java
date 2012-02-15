@@ -295,7 +295,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 				
 			} catch (Exception e) {
 				if (checkTimeout && remainingTries-- == 0) {
-					ex = e;
+					ex = new Exception("Virtual Machine OS was not started. Please check you credentials.");
 				}
 			}
 
@@ -345,7 +345,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 		cmdBuilder.append(user);
 		cmdBuilder.append(" --password ");
 		cmdBuilder.append(password);
-		cmdBuilder.append(" --wait-exit --wait-stdout");
+		cmdBuilder.append(" --wait-exit");
 
 		if (splittedCommand.length > 1) {
 			cmdBuilder.append(" --");
@@ -401,10 +401,35 @@ public class VBoxStrategy implements HypervisorStrategy {
 		if (status(virtualMachine).equals(VirtualMachineStatus.RUNNING)) {
 			stop(virtualMachine);
 		}
-
+		
+		HypervisorConfigurationFile confFile = new HypervisorConfigurationFile(virtualMachine.getName());
+		
+		List<Snapshot> snapshots = confFile.getSnapshots();
+		for (Snapshot snapshot : snapshots) {
+			ProcessBuilder destroySnapshotBuilder = getProcessBuilder(
+					"snapshot " + virtualMachine.getName() + " delete " + snapshot.getName());
+			HypervisorUtils.runProcess(destroySnapshotBuilder);
+			confFile.removeSnapshot(snapshot.getName());
+		}
+		
 		ProcessBuilder destroyProcessBuilder = getProcessBuilder(
 				"unregistervm " + virtualMachine.getName() + " --delete");
-		HypervisorUtils.runAndCheckProcess(destroyProcessBuilder);
+		HypervisorUtils.runProcess(destroyProcessBuilder);
+		
+		String imagePath = virtualMachine.getProperty(
+				VirtualMachineConstants.DISK_IMAGE_PATH);
+		
+		if (imagePath != null) {
+			
+			String imageName = new File(imagePath).getName();
+			
+			ProcessBuilder destroyDiskBuilder = getProcessBuilder(
+					"closemedium disk " + imageName);
+			HypervisorUtils.runProcess(destroyDiskBuilder);
+		}
+		
+		confFile.deleteVM();
+		
 	}
 
 	private static ProcessBuilder getProcessBuilder(

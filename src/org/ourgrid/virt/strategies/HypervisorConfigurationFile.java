@@ -28,20 +28,22 @@ public class HypervisorConfigurationFile {
 	private static final String JSON_SHAREDFOLDERS = "sharedfolders";
 	private static final String JSON_SNAPSHOTS = "snapshots";
 	private static final String STORAGE_DIR = System.getProperty("user.home") + "/.ourvirt";
-	{
-		if ( !(new File(STORAGE_DIR).exists()) ){
-			new File(STORAGE_DIR).mkdirs();
-		}
-	}
 	
 	private final String filePath;
 	
 	public HypervisorConfigurationFile(String vmName) throws IOException {
+		
+		File storageDir = new File(STORAGE_DIR);
+		if (!storageDir.exists()) {
+			storageDir.mkdirs();
+		}
+		
 		this.filePath = STORAGE_DIR + "/" + vmName;
 		File confFile = new File(filePath);
 		if (! confFile.exists()) {
 			confFile.createNewFile();
 		}
+		
 	}
 
 	/**
@@ -287,6 +289,12 @@ public class HypervisorConfigurationFile {
 		if (! confFile.exists()) {
 			confFile.delete();
 		}
+		
+		File storageDir = new File(STORAGE_DIR);
+		if (storageDir.exists() && storageDir.list().length == 0){
+			storageDir.delete();
+		}
+		
 	}
 	
 }

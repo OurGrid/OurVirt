@@ -95,7 +95,7 @@ public class Main {
 			ourVirt.start(hypervisorType, vmName);
 		} else if (method.equals("stop")) {
 			checkMachine(vmName);
-			ourVirt.start(hypervisorType, vmName);
+			ourVirt.stop(hypervisorType, vmName);
 		} else if (method.equals("prepareEnvironment")) {
 			String user = line.getOptionValue("user");
 			if ( user == null ){

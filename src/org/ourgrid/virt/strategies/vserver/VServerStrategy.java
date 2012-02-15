@@ -255,6 +255,8 @@ public class VServerStrategy implements HypervisorStrategy {
 				"-c", "/bin/echo  \"y\" | /usr/bin/sudo vserver " + vmName
 						+ " delete ");
 		HypervisorUtils.runAndCheckProcess(destroyProcessBuilder);
+		
+		new HypervisorConfigurationFile(virtualMachine.getName()).deleteVM();
 	}
 
 	private static List<String> getVMMountedSharedFolders(
