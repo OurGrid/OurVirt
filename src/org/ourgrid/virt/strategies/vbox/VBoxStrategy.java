@@ -26,6 +26,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 	private static final String TMP_START_VM_VBS = "/tmp/start-vm.vbs";
 	private static final String FILE_ERROR = "VBOX_E_FILE_ERROR";
 	private static final String OBJECT_IN_USE = "VBOX_E_OBJECT_IN_USE";
+	private static final String OBJECT_NOT_FOUND = "VBOX_E_OBJECT_NOT_FOUND";
 	private static final String INVALID_ARG = "E_INVALIDARG";
 	private static final String NS_INVALID_ARG = "NS_ERROR_INVALID_ARG";
 	private static final String COPY_ERROR = "VBOX_E_IPRT_ERROR";
@@ -443,12 +444,31 @@ public class VBoxStrategy implements HypervisorStrategy {
 
 		ProcessBuilder versionProcessBuilder = getProcessBuilder(
 				"sharedfolder add \"" + virtualMachine.getName() + "\"" + 
-						" --hostpath \"" + hostPath + "\"" +
+						" --hostpath \"" + new File(hostPath).getAbsolutePath() + "\"" +
 						" --name " + shareName); 
 		HypervisorUtils.runAndCheckProcess(versionProcessBuilder);
 
 		SharedFolder sharedFolder = new SharedFolder(shareName, hostPath, guestPath);
 		new HypervisorConfigurationFile(virtualMachine.getName()).addSharedFolder(sharedFolder);		
+	}
+	
+	@Override
+	public void deleteSharedFolder(VirtualMachine virtualMachine, String shareName) throws Exception {
+		
+		ProcessBuilder versionProcessBuilder = getProcessBuilder(
+				"sharedfolder remove \"" + virtualMachine.getName() + "\"" + 
+						" --name " + shareName); 
+		ExecutionResult deleteSharedFolderResult = HypervisorUtils.runProcess(versionProcessBuilder);
+
+		if (deleteSharedFolderResult.getReturnValue() != ExecutionResult.OK) {
+			// Shared folder already exists
+			String stdErr = deleteSharedFolderResult.getStdErr().toString();
+			if (!stdErr.contains(OBJECT_NOT_FOUND)) {
+				throw new Exception(stdErr);
+			}
+		}
+		
+		new HypervisorConfigurationFile(virtualMachine.getName()).removeSharedFolder(shareName);
 	}
 
 	private List<String> list(boolean onlyRunning) throws Exception {
@@ -594,11 +614,9 @@ public class VBoxStrategy implements HypervisorStrategy {
 	public void prepareEnvironment(String userName) throws Exception {
 		if ( HypervisorUtils.isLinuxHost() ){
 			LinuxUtils.appendLineToSudoersFile(userName, "/usr/bin/VBoxManage");
-		}
-		else if ( HypervisorUtils.isWindowsHost() ){
+		} else if ( HypervisorUtils.isWindowsHost() ){
 			//TODO verify if something is needed in order to VBox manage virtual machines properly
-		}
-		else{
+		} else {
 			throw new Exception("Unable to prepare environment. OS not supported by VServer hypervisor.");
 		}
 	}

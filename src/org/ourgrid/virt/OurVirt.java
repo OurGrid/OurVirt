@@ -222,6 +222,22 @@ public class OurVirt {
 	}
 	
 	/**
+	 * Removes a shared folder with given name in the OurVirt volatile memory and deletes it 
+	 * from the configuration within the specified hypervisor.
+	 * If the shared folder with given name does not exist, this method will return silently.
+	 * @param hypervisor the hypervisor used to manage the virtual machine
+	 * @param vmName the name identifier of the virtual machine
+	 * @param shareName the name identifier of the shared folder
+	 * @throws Exception if the hypervisor does not support this method
+	 * or if some problem occurs while trying to delete the shared folder
+	 * for the registered virtual machine
+	 */
+	public void deleteSharedFolder(HypervisorType hypervisor, String vmName, 
+			String shareName) throws Exception {
+		factory.get(hypervisor).deleteSharedFolder(getRegisteredVM(vmName), shareName);
+	}
+	
+	/**
 	 * Mounts the specified shared folder in the virtual machine.
 	 * @param hypervisor the hypervisor used to manage the virtual machine
 	 * @param vmName the name identifier of the virtual machine

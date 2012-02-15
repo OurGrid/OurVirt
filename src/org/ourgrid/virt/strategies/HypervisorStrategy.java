@@ -167,5 +167,13 @@ public interface HypervisorStrategy {
 	 * Prepares the environment for ourvirt user to be able to manage virtual machines using this hypervisor.
 	 */
 	void prepareEnvironment(String userName) throws Exception;
+
+	/**
+	 * Deletes the specified shared folder.
+	 * 
+	 * @param registeredVM
+	 * @param shareName
+	 */
+	void deleteSharedFolder(VirtualMachine registeredVM, String shareName) throws Exception;
 	
 }

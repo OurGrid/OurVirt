@@ -341,6 +341,11 @@ public class VServerStrategy implements HypervisorStrategy {
 		new HypervisorConfigurationFile(virtualMachine.getName())
 				.addSharedFolder(sharedFolder);
 	}
+	
+	@Override
+	public void deleteSharedFolder(VirtualMachine virtualMachine, String shareName) throws Exception {
+		new HypervisorConfigurationFile(virtualMachine.getName()).removeSharedFolder(shareName);
+	}
 
 	@Override
 	public List<String> listVMs() throws Exception {

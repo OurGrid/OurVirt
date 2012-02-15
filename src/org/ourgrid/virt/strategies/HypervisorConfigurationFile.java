@@ -121,7 +121,13 @@ public class HypervisorConfigurationFile {
 		JsonObject vmJson = parse();
 		
 		JsonArray newSharedFoldersJson = new JsonArray();
-		JsonArray sharedFoldersJson = vmJson.get(JSON_SHAREDFOLDERS).getAsJsonArray();
+		JsonElement sharedFolderElement = vmJson.get(JSON_SHAREDFOLDERS);
+		if (sharedFolderElement == null) {
+			return;
+		}
+		
+		JsonArray sharedFoldersJson = sharedFolderElement.getAsJsonArray();
+		
 		for (int i = 0; i < sharedFoldersJson.size(); i++) {
 			SharedFolder sharedFolder = SharedFolder.parse(sharedFoldersJson.get(i));
 			if (!sharedFolder.getName().equals(shareName)) {
