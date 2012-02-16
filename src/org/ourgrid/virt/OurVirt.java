@@ -277,4 +277,8 @@ public class OurVirt {
 	public void prepareEnvironment(HypervisorType hypervisor, String userName) throws Exception {
 		factory.get(hypervisor).prepareEnvironment(userName);
 	}
+	
+	public void clone(HypervisorType hypervisor, String sourceDevice, String destDevice) throws Exception {
+		factory.get(hypervisor).clone(sourceDevice, destDevice);
+	}
 }

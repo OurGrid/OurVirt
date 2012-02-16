@@ -20,9 +20,12 @@ import org.ourgrid.virt.strategies.LinuxUtils;
 
 public class VServerStrategy implements HypervisorStrategy {
 
-	private final int VSERVER_STOPPED_EXIT_VALUE = 3;
-	private final int START_RECHECK_DELAY = 10;
-
+	private static final int VSERVER_STOPPED_EXIT_VALUE = 3;
+	private static final int START_RECHECK_DELAY = 10;
+	private static final int CONTEXT_RANGE_INITIAL= 2;
+	private static final int CONTEXT_RANGE = 49151 - CONTEXT_RANGE_INITIAL;
+	
+	
 	@Override
 	public void create(VirtualMachine virtualMachine) throws Exception {
 
@@ -111,6 +114,13 @@ public class VServerStrategy implements HypervisorStrategy {
 	private void startVirtualMachine(VirtualMachine virtualMachine)
 			throws IOException, Exception {
 
+		int contextIdx = (int) (Math.random() * (double) CONTEXT_RANGE);
+		
+		ProcessBuilder setContextBuilder = getProcessBuilder(
+				"/bin/echo " + (CONTEXT_RANGE_INITIAL + contextIdx) + 
+				" > /etc/vservers/" + virtualMachine.getName() + "/context");
+		HypervisorUtils.runProcess(setContextBuilder);
+		
 		ProcessBuilder startProcessBuilder = getVMProcessBuilder(
 				virtualMachine, "start");
 		HypervisorUtils.runAndCheckProcess(startProcessBuilder);
@@ -467,6 +477,13 @@ public class VServerStrategy implements HypervisorStrategy {
 			throw new Exception(
 					"Unable to prepare environment. OS not supported by VServer hypervisor.");
 		}
+	}
+
+	@Override
+	public void clone(String sourceDevice, String destDevice) throws Exception {
+		ProcessBuilder cloneProcess = getVServerProcessBuilder(
+				destDevice + " -- build m clone - --source /etc/vservers/.defaults/vdirbase/" + sourceDevice);
+		HypervisorUtils.runAndCheckProcess(cloneProcess);
 	}
 
 }

@@ -30,6 +30,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 	private static final String INVALID_ARG = "E_INVALIDARG";
 	private static final String NS_INVALID_ARG = "NS_ERROR_INVALID_ARG";
 	private static final String COPY_ERROR = "VBOX_E_IPRT_ERROR";
+	private static final String VIRTUALBOX_VMS = System.getProperty("user.home") + "/VirtualBox VMs";
 
 	private static final String DISK_CONTROLLER_NAME = "Disk Controller";
 	private final int START_RECHECK_DELAY = 10;
@@ -420,7 +421,6 @@ public class VBoxStrategy implements HypervisorStrategy {
 				VirtualMachineConstants.DISK_IMAGE_PATH);
 		
 		if (imagePath != null) {
-			
 			String imageName = new File(imagePath).getName();
 			
 			ProcessBuilder destroyDiskBuilder = getProcessBuilder(
@@ -429,6 +429,11 @@ public class VBoxStrategy implements HypervisorStrategy {
 		}
 		
 		confFile.deleteVM();
+		
+		File virtualVmDir = new File(VIRTUALBOX_VMS + "/" + virtualMachine.getName());
+		if (virtualVmDir.exists()) {
+			virtualVmDir.delete();
+		}
 		
 	}
 
@@ -644,6 +649,14 @@ public class VBoxStrategy implements HypervisorStrategy {
 		} else {
 			throw new Exception("Unable to prepare environment. OS not supported by VServer hypervisor.");
 		}
+	}
+
+	@Override
+	public void clone(String sourceDevice, String destDevice) throws Exception {
+		ProcessBuilder startProcessBuilder = getProcessBuilder(
+				"clonehd " + sourceDevice + " " + destDevice);
+		HypervisorUtils.runAndCheckProcess(startProcessBuilder);
+		
 	}
 
 }
