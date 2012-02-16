@@ -15,8 +15,6 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
 import org.ourgrid.virt.model.ExecutionResult;
-import org.ourgrid.virt.model.SharedFolder;
-import org.ourgrid.virt.model.Snapshot;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
 
@@ -219,37 +217,5 @@ public class HypervisorUtils {
 		return matchList;
 	}
 	
-	/**
-	 * Retrieves the SharedFolder object by given shared folder name.
-	 * @param virtualMachine the virtual machine
-	 * @param shareName the name identifier of the shared folder
-	 * @return the shared folder object
-	 * @throws Exception if shared folder does not exist
-	 */
-	public static SharedFolder getSharedFolder(VirtualMachine virtualMachine,
-			String shareName) throws Exception {
-		SharedFolder sharedFolder = new HypervisorConfigurationFile(virtualMachine.getName())
-		.getSharedFolder(shareName);
-		if ( sharedFolder == null ){
-			throw new Exception("Shared folder [ "+shareName+" ] does not exist.");
-		}
-		return sharedFolder;
-	}
-	
-	/**
-	 * Checks whether the snapshot specified by given name exists.
-	 * @param virtualMachine the virtual machine
-	 * @param snapshotName the name identifier of the snapshot
-	 * @return <b><i>true</b></i> if snapshot exists, <b><i>false</b></i> otherwise
-	 * @throws Exception if some io problem happen
-	 */
-	public static boolean snapshotExists(VirtualMachine virtualMachine,
-			String snapshotName) throws Exception {
-		
-		Snapshot snapshot = new HypervisorConfigurationFile(
-				virtualMachine.getName()).getSnapshot(snapshotName);
-		
-		return snapshot != null;
-	}
 
 }

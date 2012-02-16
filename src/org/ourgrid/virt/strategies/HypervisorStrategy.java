@@ -149,7 +149,8 @@ public interface HypervisorStrategy {
 	 * @throws Exception if the hypervisor does not support this method
 	 * or if some problem occurs while trying to mount the shared folder within the specified virtual machine
 	 */
-	void mountSharedFolder(VirtualMachine virtualMachine, String shareName) throws Exception;
+	void mountSharedFolder(VirtualMachine virtualMachine, String shareName,
+			String hostPath, String guestPath) throws Exception;
 	
 	/**
 	 * Unmounts the specified shared folder in the related virtual machine .
@@ -161,7 +162,8 @@ public interface HypervisorStrategy {
 	 * @throws Exception if the hypervisor does not support this method
 	 * or if some problem occurs while trying to unmount the shared folder within the specified virtual machine
 	 */
-	void unmountSharedFolder(VirtualMachine virtualMachine, String shareName) throws Exception;
+	void unmountSharedFolder(VirtualMachine virtualMachine, String shareName, 
+			String hostPath, String guestPath) throws Exception;
 
 	/**
 	 * Prepares the environment for ourvirt user to be able to manage virtual machines using this hypervisor.

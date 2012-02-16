@@ -246,8 +246,9 @@ public class OurVirt {
 	 * or if some problem occurs while trying to mount the shared folder
 	 * for the registered virtual machine
 	 */
-	public void mountSharedFolder(HypervisorType hypervisor, String vmName, String shareName) throws Exception {
-		factory.get(hypervisor).mountSharedFolder(getRegisteredVM(vmName), shareName);
+	public void mountSharedFolder(HypervisorType hypervisor, String vmName, String shareName, 
+			String hostPath, String guestPath) throws Exception {
+		factory.get(hypervisor).mountSharedFolder(getRegisteredVM(vmName), shareName, hostPath, guestPath);
 	}
 	
 	/**
@@ -261,8 +262,9 @@ public class OurVirt {
 	 * or if some problem occurs while trying to unmount the shared folder
 	 * for the registered virtual machine
 	 */
-	public void unmountSharedFolder(HypervisorType hypervisor, String vmName, String shareName) throws Exception {
-		factory.get(hypervisor).unmountSharedFolder(getRegisteredVM(vmName), shareName);
+	public void unmountSharedFolder(HypervisorType hypervisor, String vmName, String shareName, 
+			String hostPath, String guestPath) throws Exception {
+		factory.get(hypervisor).unmountSharedFolder(getRegisteredVM(vmName), shareName, hostPath, guestPath);
 	}
 	
 	/**

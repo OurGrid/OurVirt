@@ -44,7 +44,7 @@ public class Main {
 		ourVirt.start(HypervisorType.VBOX, vmName);
 		
 		ourVirt.mountSharedFolder(HypervisorType.VBOX, vmName, 
-				"shared-home");
+				"shared-home", "C:\\Users\\Abmar", "/home/worker/shared");
 		
 		File file = new File("C:\\Users\\Abmar\\hello.txt");
 		FileWriter writer = new FileWriter(file);

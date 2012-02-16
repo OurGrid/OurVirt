@@ -21,6 +21,8 @@ public class Main {
 		options.addOption("vm", true, "The name of the virtual machine");
 		options.addOption("user", true, "The user of the virtual machine. (For prepareEnvironment)");
 		options.addOption("c", true, "The command to be executed. (For exec)");
+		options.addOption("source", true, "The source device. (For clone)");
+		options.addOption("target", true, "The target device. (For clone)");
 		options.addOption("help", false, "Print this message");
 		
 		options.addOption(OptionBuilder.withArgName("property=value")
@@ -108,6 +110,13 @@ public class Main {
 				throw new ParseException("Commmand line must be specified.");
 			}
 			ourVirt.exec(hypervisorType, vmName, cmd);
+		} else if (method.equals("clone")) {
+			String source = line.getOptionValue("source");
+			String target = line.getOptionValue("target");
+			if ( source == null || target == null) {
+				throw new ParseException("Source and target devices must be specified.");
+			}
+			ourVirt.clone(hypervisorType, source, target);
 		} else {
 			throw new ParseException("Method " + method + " not supported by OurVirt.");
 		}

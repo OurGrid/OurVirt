@@ -4,19 +4,15 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 
 import org.apache.commons.io.IOUtils;
 import org.ourgrid.virt.model.ExecutionResult;
-import org.ourgrid.virt.model.SharedFolder;
-import org.ourgrid.virt.model.Snapshot;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
 import org.ourgrid.virt.model.VirtualMachineStatus;
-import org.ourgrid.virt.strategies.HypervisorConfigurationFile;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
 import org.ourgrid.virt.strategies.LinuxUtils;
@@ -145,7 +141,6 @@ public class VBoxStrategy implements HypervisorStrategy {
 				&& !stdErr.contains(FILE_ERROR)) {
 			throw new Exception(stdErr);
 		}
-		new HypervisorConfigurationFile(virtualMachine.getName());
 	}
 
 	@Override
@@ -161,14 +156,12 @@ public class VBoxStrategy implements HypervisorStrategy {
 
 	@Override
 	public void mountSharedFolder(VirtualMachine virtualMachine,
-			String shareName)
+			String shareName, String hostPath, String guestPath)
 					throws Exception {
 
 		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
 			throw new Exception("Unable to mount shared folder. Machine is not started.");
 		}
-
-		String guestPath = HypervisorUtils.getSharedFolder(virtualMachine, shareName).getGuestpath();
 
 		if (guestPath == null) {
 			throw new IllegalArgumentException("Shared folder [" + shareName + "] does not exist.");
@@ -364,7 +357,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 			throws Exception {
 		String vMName = virtualMachine.getName();
 
-		if (HypervisorUtils.snapshotExists(virtualMachine, snapshotName)) {
+		if (snapshotExists(virtualMachine, snapshotName)) {
 			throw new Exception("Snapshot [ " + snapshotName + " ] already exists " +
 					"for virtual machine [ " + vMName + " ].");
 		}
@@ -373,8 +366,6 @@ public class VBoxStrategy implements HypervisorStrategy {
 				"snapshot " + vMName + " take " + snapshotName);
 		HypervisorUtils.runAndCheckProcess(takeSnapshotProcessBuilder);
 
-		Snapshot snapshot = new Snapshot(snapshotName);
-		new HypervisorConfigurationFile(virtualMachine.getName()).addSnapshot(snapshot);
 	}
 
 	@Override
@@ -386,7 +377,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 
 		String vMName = virtualMachine.getName();
 
-		if (! HypervisorUtils.snapshotExists(virtualMachine, snapshotName)) {
+		if (! snapshotExists(virtualMachine, snapshotName)) {
 			throw new Exception("Snapshot [ " + snapshotName + " ] does not exist for " +
 					"virtual machine [ " + virtualMachine.getName() + " ].");
 		}
@@ -403,14 +394,11 @@ public class VBoxStrategy implements HypervisorStrategy {
 			stop(virtualMachine);
 		}
 		
-		HypervisorConfigurationFile confFile = new HypervisorConfigurationFile(virtualMachine.getName());
-		
-		List<Snapshot> snapshots = confFile.getSnapshots();
-		for (Snapshot snapshot : snapshots) {
+		List<String> snapshots = listSnapshots(virtualMachine);
+		for (String snapshot : snapshots) {
 			ProcessBuilder destroySnapshotBuilder = getProcessBuilder(
-					"snapshot " + virtualMachine.getName() + " delete " + snapshot.getName());
+					"snapshot " + virtualMachine.getName() + " delete " + snapshot);
 			HypervisorUtils.runProcess(destroySnapshotBuilder);
-			confFile.removeSnapshot(snapshot.getName());
 		}
 		
 		ProcessBuilder destroyProcessBuilder = getProcessBuilder(
@@ -427,8 +415,6 @@ public class VBoxStrategy implements HypervisorStrategy {
 					"closemedium disk " + imageName);
 			HypervisorUtils.runProcess(destroyDiskBuilder);
 		}
-		
-		confFile.deleteVM();
 		
 		File virtualVmDir = new File(VIRTUALBOX_VMS + "/" + virtualMachine.getName());
 		if (virtualVmDir.exists()) {
@@ -478,8 +464,6 @@ public class VBoxStrategy implements HypervisorStrategy {
 						" --name " + shareName); 
 		HypervisorUtils.runAndCheckProcess(versionProcessBuilder);
 
-		SharedFolder sharedFolder = new SharedFolder(shareName, hostPath, guestPath);
-		new HypervisorConfigurationFile(virtualMachine.getName()).addSharedFolder(sharedFolder);		
 	}
 	
 	@Override
@@ -497,8 +481,6 @@ public class VBoxStrategy implements HypervisorStrategy {
 				throw new Exception(stdErr);
 			}
 		}
-		
-		new HypervisorConfigurationFile(virtualMachine.getName()).removeSharedFolder(shareName);
 	}
 
 	private List<String> list(boolean onlyRunning) throws Exception {
@@ -554,38 +536,62 @@ public class VBoxStrategy implements HypervisorStrategy {
 	@Override
 	public List<String> listSnapshots(VirtualMachine virtualMachine) throws Exception {
 
-		List<String> snapshotsList = new ArrayList<String>();
-		List<Snapshot> snapshots = new HypervisorConfigurationFile(virtualMachine.getName()).getSnapshots();
-
-		for (Snapshot snapshot : snapshots) {
-			snapshotsList.add(snapshot.getName());
+		ProcessBuilder startProcessBuilder = getProcessBuilder(
+				"snapshot " + virtualMachine.getName() + " list --machinereadable");
+		ExecutionResult runProcess = HypervisorUtils.runProcess(startProcessBuilder);
+		
+		List<String> snapshots = new LinkedList<String>();
+		
+		if (runProcess.getReturnValue() != 0) {
+			return snapshots;
 		}
-
-		return snapshotsList;
+		
+		for (String line : runProcess.getStdOut()) {
+			if (line.startsWith("SnapshotName")) {
+				String snapshotWithQuotes = line.split("=")[1];
+				snapshots.add(snapshotWithQuotes.substring(
+						1, snapshotWithQuotes.length() - 1));
+			}
+		}
+		
+		return snapshots;
+	}
+	
+	private boolean snapshotExists(VirtualMachine vm, String snapshot) throws Exception {
+		return listSnapshots(vm).contains(snapshot);
 	}
 
 	@Override
 	public List<String> listSharedFolders(VirtualMachine virtualMachine) throws Exception {
 
-		List<String> shareNames = new LinkedList<String>();
-		for ( SharedFolder sharedFolder : new HypervisorConfigurationFile(virtualMachine.getName()).getSharedFolders() ){
-			shareNames.add(sharedFolder.getName());
+		ProcessBuilder startProcessBuilder = getProcessBuilder(
+				"showvminfo " + virtualMachine.getName() + " list --machinereadable");
+		ExecutionResult runProcess = HypervisorUtils.runProcess(startProcessBuilder);
+		
+		List<String> shares = new LinkedList<String>();
+		
+		if (runProcess.getReturnValue() != 0) {
+			return shares;
 		}
-		return shareNames;
+		
+		for (String line : runProcess.getStdOut()) {
+			if (line.startsWith("SharedFolderName")) {
+				String shareNameWithQuotes = line.split("=")[1];
+				shares.add(shareNameWithQuotes.substring(
+						1, shareNameWithQuotes.length() - 1));
+			}
+		}
+		
+		return shares;
 	}
 
 	@Override
-	public void unmountSharedFolder(VirtualMachine virtualMachine, String shareName)
+	public void unmountSharedFolder(VirtualMachine virtualMachine, String shareName, 
+			String hostPath, String guestPath)
 			throws Exception {
 
 		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
 			throw new Exception("Unable to unmount shared folder. Machine is not started.");
-		}
-
-		String guestPath = HypervisorUtils.getSharedFolder(virtualMachine, shareName).getGuestpath();
-
-		if (guestPath == null) {
-			throw new IllegalArgumentException("Shared folder [" + shareName + "] does not exist.");
 		}
 
 		String password = virtualMachine.getConfiguration().get(
