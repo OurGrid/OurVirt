@@ -191,7 +191,7 @@ public class VServerStrategy implements HypervisorStrategy {
 
 	private boolean snapshotExists(VirtualMachine virtualMachine,
 			String snapshotName) {
-		return new File("/etc/vservers/" + SNAPSHOT_PREFIX + virtualMachine
+		return new File("/etc/vservers/" + SNAPSHOT_PREFIX + virtualMachine.getName()
 				+ "_" + snapshotName).exists();
 	}
 	
@@ -407,7 +407,7 @@ public class VServerStrategy implements HypervisorStrategy {
 		List<String> snapshotsList = new ArrayList<String>();
 		
 		for (String vmImage : vserverBase.list()) {
-			if (vmImage.startsWith(SNAPSHOT_PREFIX + virtualMachine + "_")) {
+			if (vmImage.startsWith(SNAPSHOT_PREFIX + virtualMachine.getName() + "_")) {
 				String snapshot = vmImage.substring(vmImage.lastIndexOf('_') + 1);
 				snapshotsList.add(snapshot);
 			}
