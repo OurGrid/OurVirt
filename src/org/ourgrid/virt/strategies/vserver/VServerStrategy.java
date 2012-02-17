@@ -103,7 +103,7 @@ public class VServerStrategy implements HypervisorStrategy {
 		int contextIdx = (int) (Math.random() * (double) CONTEXT_RANGE);
 		
 		ProcessBuilder setContextBuilder = getProcessBuilder(
-				"/bin/echo " + (CONTEXT_RANGE_INITIAL + contextIdx) + 
+				"/usr/bin/sudo /bin/echo " + (CONTEXT_RANGE_INITIAL + contextIdx) + 
 				" > /etc/vservers/" + virtualMachine.getName() + "/context");
 		HypervisorUtils.runProcess(setContextBuilder);
 		
