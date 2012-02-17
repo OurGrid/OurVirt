@@ -52,7 +52,7 @@ public class VServerStrategy implements HypervisorStrategy {
 				.getProperty(VirtualMachineConstants.OS_VERSION);
 
 		ProcessBuilder buildVMBuilder = getVServerProcessBuilder(vmName
-				+ " build -m template -- -t " + imagePath + " -d "
+				+ " build -m template --context " + generateContext() + "  -- -t " + imagePath + " -d "
 				+ osVersion.toLowerCase());
 		HypervisorUtils.runAndCheckProcess(buildVMBuilder);
 	}
@@ -100,13 +100,6 @@ public class VServerStrategy implements HypervisorStrategy {
 	private void startVirtualMachine(VirtualMachine virtualMachine)
 			throws IOException, Exception {
 
-		int contextIdx = (int) (Math.random() * (double) CONTEXT_RANGE);
-		
-		ProcessBuilder setContextBuilder = getProcessBuilder(
-				"/usr/bin/sudo /bin/echo " + (CONTEXT_RANGE_INITIAL + contextIdx) + 
-				" > /etc/vservers/" + virtualMachine.getName() + "/context");
-		HypervisorUtils.runProcess(setContextBuilder);
-		
 		ProcessBuilder startProcessBuilder = getVMProcessBuilder(
 				virtualMachine, "start");
 		HypervisorUtils.runAndCheckProcess(startProcessBuilder);
@@ -183,7 +176,7 @@ public class VServerStrategy implements HypervisorStrategy {
 
 		ExecutionResult takeSnapshotProcess = HypervisorUtils
 				.runProcess(getVServerProcessBuilder(actualSnapshotName
-						+ " build --force -m clone -- --source /etc/vservers/.defaults/vdirbase/"
+						+ " build --force -m clone --context " + generateContext() + " -- --source /etc/vservers/.defaults/vdirbase/"
 						+ vmName));
 		HypervisorUtils.checkReturnValue(takeSnapshotProcess);
 
@@ -222,7 +215,7 @@ public class VServerStrategy implements HypervisorStrategy {
 
 		ExecutionResult restoreSnapshotProcess = HypervisorUtils
 				.runProcess(getVMProcessBuilder(virtualMachine,
-						"build --force -m clone -- --source /etc/vservers/.defaults/vdirbase/"
+						"build --force -m clone --context " + generateContext() + " -- --source /etc/vservers/.defaults/vdirbase/"
 								+ actualSnapshotName));
 		HypervisorUtils.checkReturnValue(restoreSnapshotProcess);
 	}
@@ -485,9 +478,16 @@ public class VServerStrategy implements HypervisorStrategy {
 
 	@Override
 	public void clone(String sourceDevice, String destDevice) throws Exception {
+		
 		ProcessBuilder cloneProcess = getVServerProcessBuilder(
-				destDevice + " build --force -m clone -- --source /etc/vservers/.defaults/vdirbase/" + sourceDevice);
+				destDevice + " build --force -m clone --context " + generateContext() + 
+				" -- --source /etc/vservers/.defaults/vdirbase/" + sourceDevice);
 		HypervisorUtils.runAndCheckProcess(cloneProcess);
+	}
+
+	private int generateContext() {
+		int contextIdx = (int) (Math.random() * (double) CONTEXT_RANGE);
+		return contextIdx;
 	}
 
 }
