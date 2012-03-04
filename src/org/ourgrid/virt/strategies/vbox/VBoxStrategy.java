@@ -2,6 +2,7 @@ package org.ourgrid.virt.strategies.vbox;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.LinkedList;
@@ -19,7 +20,6 @@ import org.ourgrid.virt.strategies.LinuxUtils;
 
 public class VBoxStrategy implements HypervisorStrategy {
 
-	private static final String TMP_START_VM_VBS = "/tmp/start-vm.vbs";
 	private static final String FILE_ERROR = "VBOX_E_FILE_ERROR";
 	private static final String OBJECT_IN_USE = "VBOX_E_OBJECT_IN_USE";
 	private static final String OBJECT_NOT_FOUND = "VBOX_E_OBJECT_NOT_FOUND";
@@ -225,34 +225,40 @@ public class VBoxStrategy implements HypervisorStrategy {
 	private void startVirtualMachine(VirtualMachine virtualMachine)
 			throws IOException, Exception {
 
+		String vmName = virtualMachine.getName();
+		
 		if (HypervisorUtils.isWindowsHost()) {
 			
-			extractStartVBS();
+			File vbsFile = File.createTempFile("ourvirt-vboxstart-", ".vbs");
+			FileOutputStream vbsFOS = new FileOutputStream(vbsFile);
+			IOUtils.write(createStartVBSCommand(vmName), vbsFOS);
+			vbsFOS.close();
 			
 			ProcessBuilder vbsProcessBuilder = new ProcessBuilder("wscript", 
-					new File(TMP_START_VM_VBS).getAbsolutePath(), virtualMachine.getName());
-			vbsProcessBuilder.directory(new File(
-					System.getenv().get("VBOX_INSTALL_PATH")));
-			ExecutionResult vbsExecutionResult = 
-					HypervisorUtils.runProcess(vbsProcessBuilder);
-
-			if (vbsExecutionResult.getReturnValue() != ExecutionResult.OK) {
+					vbsFile.getAbsolutePath(), vmName);
+			vbsProcessBuilder.directory(new File(System.getenv().get("VBOX_INSTALL_PATH")));
+			ExecutionResult vbsExecutionResult = HypervisorUtils.runProcess(vbsProcessBuilder);
+			
+			int returnValue = vbsExecutionResult.getReturnValue();
+			
+			vbsFile.delete();
+			
+			if (returnValue != ExecutionResult.OK) {
 				throw new Exception("Could not start VM");
 			}
-
+			
 		} else {
+			
 			ProcessBuilder startProcessBuilder = getProcessBuilder(
-					"startvm " + virtualMachine.getName() + " --type headless");
+					"startvm " + vmName + " --type headless");
 			HypervisorUtils.runAndCheckProcess(startProcessBuilder);
 		}
 	}
-
-	private void extractStartVBS() throws IOException {
-		if (!new File(TMP_START_VM_VBS).exists()) {
-			FileWriter fileWriter = new FileWriter(TMP_START_VM_VBS);
-			IOUtils.copy(getClass().getResourceAsStream("start-vm.vbs"), fileWriter);
-			fileWriter.close();
-		}
+	
+	private static String createStartVBSCommand(String vmName) {
+		return "Set objShell = WScript.CreateObject(\"WScript.Shell\")\n" +
+				"objShell.Run \"VBoxHeadless -startvm " + vmName + "\", 0\n" + 
+				"Set objShell = Nothing";
 	}
 
 	private void checkOSStarted(VirtualMachine virtualMachine)
