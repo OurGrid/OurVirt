@@ -41,8 +41,11 @@ public class HypervisorUtils {
 	 */
 	public static void checkReturnValue(ExecutionResult executionResult) 
 			throws Exception {
-		if (executionResult.getReturnValue() != ExecutionResult.OK) {
-			throw new Exception(executionResult.getStdErr().toString());
+		int exitValue = executionResult.getReturnValue();
+		if (exitValue != ExecutionResult.OK) {
+			throw new Exception("Exit value: " + exitValue + ", StdErr: "
+					+ executionResult.getStdErr().toString() + ", StdOut: "
+					+ executionResult.getStdOut().toString());
 		}
 	}
 
