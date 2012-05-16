@@ -7,7 +7,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Random;
 
 import org.apache.commons.io.IOUtils;
 import org.ourgrid.virt.model.ExecutionResult;
@@ -181,17 +180,15 @@ public class VBoxStrategy implements HypervisorStrategy {
 
 		} else if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
 
-			long randId = Math.abs(new Random().nextLong());
-			String mountScriptFileName = "mount" + randId + ".sh";
-			String mountScriptFilePath = "/tmp/" + mountScriptFileName;
-
-			File mountFile = new File(mountScriptFilePath);
+			File mountFile = File.createTempFile("mount-", ".sh");
+			String mountScriptPathOnGuest = "/tmp/" + mountFile.getName();
+			
 			FileWriter mountFileWriter = new FileWriter(mountFile);
 			mountFileWriter.write(
 					"/bin/mkdir -p " + guestPath + "; " +
 							"sudo mount -t vboxsf -o uid=" + user + ",gid=" + user + 
 							" " + shareName + " " + guestPath + "; " +
-							"rm " + mountScriptFilePath);
+							"rm " + mountScriptPathOnGuest);
 			mountFileWriter.close();
 
 			try {
@@ -211,7 +208,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 				}
 
 				HypervisorUtils.checkReturnValue(
-						exec(virtualMachine, "/bin/bash " + mountScriptFilePath));
+						exec(virtualMachine, "/bin/bash " + mountScriptPathOnGuest));
 
 			} finally {
 				mountFile.delete();
@@ -612,11 +609,9 @@ public class VBoxStrategy implements HypervisorStrategy {
 
 		} else if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
 
-			long randId = Math.abs(new Random().nextLong());
-			String unmountScriptFileName = "unmount" + randId + ".sh";
-			String unmountScriptFilePath = "/tmp/" + unmountScriptFileName;
-
-			File unmountFile = new File(unmountScriptFilePath);
+			File unmountFile = File.createTempFile("unmount-", ".sh");
+			String unmountScriptFilePath = "/tmp/" + unmountFile.getName();
+			
 			FileWriter unmountFileWriter = new FileWriter(unmountFile);
 			unmountFileWriter.write(
 					"sudo umount " + guestPath + "; " +
