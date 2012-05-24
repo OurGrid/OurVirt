@@ -650,7 +650,7 @@ public class VBoxStrategy implements HypervisorStrategy {
 	@Override
 	public void prepareEnvironment(String userName) throws Exception {
 		if ( HypervisorUtils.isLinuxHost() ){
-			LinuxUtils.appendLineToSudoersFile(userName, "/usr/bin/VBoxManage");
+			LinuxUtils.appendNoPasswdToSudoers(userName, "/usr/bin/VBoxManage");
 		} else if ( HypervisorUtils.isWindowsHost() ){
 			//TODO verify if something is needed in order to VBox manage virtual machines properly
 		} else {

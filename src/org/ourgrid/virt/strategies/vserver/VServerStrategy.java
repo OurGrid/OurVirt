@@ -468,10 +468,14 @@ public class VServerStrategy implements HypervisorStrategy {
 	@Override
 	public void prepareEnvironment(String userName) throws Exception {
 		if (HypervisorUtils.isLinuxHost()) {
-			LinuxUtils
-					.appendLineToSudoersFile(
-							userName,
-							"/usr/sbin/vnamespace,/usr/sbin/vserver,/bin/mkdir,/bin/echo,/bin/mount,/bin/umount");
+			LinuxUtils.appendLineToSudoers("Defaults:" + userName + " !requiretty");
+			LinuxUtils.appendNoPasswdToSudoers(userName,
+							"/usr/sbin/vnamespace," +
+							"/usr/sbin/vserver," +
+							"/bin/mkdir," +
+							"/bin/echo," +
+							"/bin/mount," +
+							"/bin/umount");
 		} else {
 			throw new Exception(
 					"Unable to prepare environment. OS not supported by VServer hypervisor.");
