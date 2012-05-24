@@ -17,6 +17,8 @@ import org.ourgrid.virt.strategies.LinuxUtils;
 
 public class VServerStrategy implements HypervisorStrategy {
 
+	private static final String SUDO = "/usr/bin/sudo";
+	
 	private static final int VSERVER_STOPPED_EXIT_VALUE = 3;
 	private static final int START_RECHECK_DELAY = 10;
 	private static final int CONTEXT_RANGE_INITIAL= 2;
@@ -83,12 +85,12 @@ public class VServerStrategy implements HypervisorStrategy {
 				+ "/" + guestPath;
 
 		ExecutionResult createSharedFolderDir = HypervisorUtils
-				.runProcess(getProcessBuilder("/usr/bin/sudo /usr/sbin/vnamespace -e "
+				.runProcess(getProcessBuilder(SUDO + " /usr/sbin/vnamespace -e "
 						+ vmName + " -- mkdir -p " + guestPathOnVM));
 		HypervisorUtils.checkReturnValue(createSharedFolderDir);
 
 		ExecutionResult mountProcess = HypervisorUtils
-				.runProcess(getProcessBuilder("/usr/bin/sudo /usr/sbin/vnamespace -e "
+				.runProcess(getProcessBuilder(SUDO + " /usr/sbin/vnamespace -e "
 						+ vmName
 						+ " -- mount -o " + SHAREDFOLDER_PREFIX + shareName + " --bind "
 						+ hostPath
@@ -156,7 +158,7 @@ public class VServerStrategy implements HypervisorStrategy {
 					"Unable to execute command. Machine is not started.");
 		}
 
-		ProcessBuilder execProcessBuilder = new ProcessBuilder("/usr/bin/sudo",
+		ProcessBuilder execProcessBuilder = new ProcessBuilder(SUDO,
 				"/usr/sbin/vserver", virtualMachine.getName(), "exec",
 				"/bin/sh", "-c", command);
 		return HypervisorUtils.runProcess(execProcessBuilder);
@@ -243,7 +245,7 @@ public class VServerStrategy implements HypervisorStrategy {
 		}
 
 		ProcessBuilder destroyProcessBuilder = new ProcessBuilder("/bin/sh",
-				"-c", "/bin/echo  \"y\" | /usr/bin/sudo vserver " + vmName
+				"-c", "/bin/echo  \"y\" | " + SUDO + " /usr/sbin/vserver " + vmName
 						+ " delete ");
 		HypervisorUtils.runAndCheckProcess(destroyProcessBuilder);
 		
@@ -257,7 +259,7 @@ public class VServerStrategy implements HypervisorStrategy {
 		List<String> sharedFoldersHostPaths = new ArrayList<String>();
 
 		ExecutionResult getSharedFoldersProcess = HypervisorUtils
-				.runProcess(getProcessBuilder("/usr/bin/sudo /bin/mount -l"));
+				.runProcess(getProcessBuilder(SUDO + " /bin/mount -l"));
 
 		List<String> getSharedFoldersProcessOutPut = getSharedFoldersProcess
 				.getStdOut();
@@ -283,7 +285,7 @@ public class VServerStrategy implements HypervisorStrategy {
 
 	private static ProcessBuilder getVServerProcessBuilder(String cmd)
 			throws Exception {
-		String vserverCmdLine = "/usr/bin/sudo /usr/sbin/vserver " + cmd;
+		String vserverCmdLine = SUDO + " /usr/sbin/vserver " + cmd;
 		return getProcessBuilder(vserverCmdLine);
 	}
 
@@ -317,13 +319,13 @@ public class VServerStrategy implements HypervisorStrategy {
 		if (status(virtualMachine) == VirtualMachineStatus.RUNNING) {
 
 			ExecutionResult createSharedFolderDir = HypervisorUtils
-					.runProcess(getProcessBuilder("/usr/bin/sudo /usr/sbin/vnamespace -e "
+					.runProcess(getProcessBuilder(SUDO + " /usr/sbin/vnamespace -e "
 							+ vmName + " -- mkdir -p " + guestPathOnVM));
 			HypervisorUtils.checkReturnValue(createSharedFolderDir);
 
 		} else {
 			ExecutionResult createSharedFolderDir = HypervisorUtils
-					.runProcess(getProcessBuilder("/usr/bin/sudo /bin/mkdir -p "
+					.runProcess(getProcessBuilder(SUDO + " /bin/mkdir -p "
 							+ guestPathOnVM));
 			HypervisorUtils.checkReturnValue(createSharedFolderDir);
 		}
@@ -415,7 +417,7 @@ public class VServerStrategy implements HypervisorStrategy {
 		
 		
 		ExecutionResult listMounts = HypervisorUtils
-				.runProcess(getProcessBuilder("/usr/bin/sudo /usr/sbin/vnamespace -e "
+				.runProcess(getProcessBuilder(SUDO + " /usr/sbin/vnamespace -e "
 						+ virtualMachine.getName() + " -- mount -l "));
 		
 		List<String> listOutput = listMounts.getStdOut();
@@ -451,7 +453,7 @@ public class VServerStrategy implements HypervisorStrategy {
 
 	private void unmountSharedFolderByHostPath(VirtualMachine virtualMachine,
 			String hostPath) throws Exception {
-		ProcessBuilder unmountSFProcess = getProcessBuilder("/usr/bin/sudo /bin/umount "
+		ProcessBuilder unmountSFProcess = getProcessBuilder(SUDO + " /bin/umount "
 				+ hostPath);
 		ExecutionResult process = HypervisorUtils.runProcess(unmountSFProcess);
 
