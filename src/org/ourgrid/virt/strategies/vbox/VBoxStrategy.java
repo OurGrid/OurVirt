@@ -9,6 +9,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import org.apache.commons.io.IOUtils;
+import org.ourgrid.virt.exception.SnapshotAlreadyExistsException;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
@@ -361,8 +362,8 @@ public class VBoxStrategy implements HypervisorStrategy {
 		String vMName = virtualMachine.getName();
 
 		if (snapshotExists(virtualMachine, snapshotName)) {
-			throw new Exception("Snapshot [ " + snapshotName + " ] already exists " +
-					"for virtual machine [ " + vMName + " ].");
+			throw new SnapshotAlreadyExistsException("Snapshot [ " + snapshotName + " ] " +
+					"already exists for virtual machine [ " + vMName + " ].");
 		}
 
 		ProcessBuilder takeSnapshotProcessBuilder = getProcessBuilder(
