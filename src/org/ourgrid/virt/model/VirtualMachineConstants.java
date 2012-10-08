@@ -2,6 +2,8 @@ package org.ourgrid.virt.model;
 
 public class VirtualMachineConstants {
 
+	public static final String NETWORK_TYPE = "networktype";
+
 	public static String GUEST_USER = "user";
 	
 	public static String GUEST_PASSWORD = "password";

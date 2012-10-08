@@ -25,37 +25,53 @@ public class Main {
 		conf.put(VirtualMachineConstants.GUEST_PASSWORD, "worker");
 		conf.put(VirtualMachineConstants.MEMORY, "512");
 		conf.put(VirtualMachineConstants.OS, "Linux");
+		conf.put(VirtualMachineConstants.NETWORK_TYPE, "host-only");
 		conf.put(VirtualMachineConstants.OS_VERSION, "Ubuntu");
 		conf.put(VirtualMachineConstants.DISK_TYPE, "sata");
 		conf.put(VirtualMachineConstants.DISK_IMAGE_PATH, 
-				"C:\\Users\\Abmar\\VirtualBox VMs\\abmar-vm-server\\abmar-vm-server.vdi");
-		conf.put(VirtualMachineConstants.START_TIMEOUT, "60");
+				"/home/marcosancj/tmp/og-image.vdi");
+		conf.put(VirtualMachineConstants.START_TIMEOUT, "120");
 		
 		ourVirt.register(vmName, conf);
 		
 		try {
-			ourVirt.stop(HypervisorType.VBOX, vmName);
+			ourVirt.stop(HypervisorType.VBOXSDK, vmName);
 		} catch (Exception e) {}
 		
-		ourVirt.create(HypervisorType.VBOX, vmName);
-		ourVirt.createSharedFolder(HypervisorType.VBOX, vmName, 
-				"shared-home", "C:\\Users\\Abmar", "/home/worker/shared");
+//		ourVirt.create(HypervisorType.VBOXSDK, vmName);
 		
-		ourVirt.start(HypervisorType.VBOX, vmName);
+		try {
+//			ourVirt.takeSnapshot(HypervisorType.VBOXSDK, vmName, "VMSnapshotTest");
+			ourVirt.restoreSnapshot(HypervisorType.VBOXSDK, vmName, "OurGrid-VM");
+		} catch (Exception e) {
+//			ourVirt.restoreSnapshot(HypervisorType.VBOXSDK, vmName, "VMSnapshotTest");
+		}
 		
-		ourVirt.mountSharedFolder(HypervisorType.VBOX, vmName, 
-				"shared-home", "C:\\Users\\Abmar", "/home/worker/shared");
+//		ourVirt.deleteSharedFolder(HypervisorType.VBOXSDK, vmName, "shared-home");
+//		ourVirt.createSharedFolder(HypervisorType.VBOXSDK, vmName, 
+//				"shared-home", "/home/marcosancj/tmp", "/home/worker/shared");
 		
-		File file = new File("C:\\Users\\Abmar\\hello.txt");
+		ourVirt.start(HypervisorType.VBOXSDK, vmName);
+		
+		try {
+			Thread.sleep(10000);
+			ourVirt.takeSnapshot(HypervisorType.VBOXSDK, vmName, "OurGrid-VM");
+		} catch (Exception e) {}
+		
+		ourVirt.mountSharedFolder(HypervisorType.VBOXSDK, vmName, 
+				"shared-home", "/home/marcosancj/tmp", "/home/worker/shared");
+		
+		File file = new File("/home/marcosancj/tmp/mainteste.txt");
 		FileWriter writer = new FileWriter(file);
 		writer.write("Hello World");
 		writer.close();
 		
-		ExecutionResult exec = ourVirt.exec(HypervisorType.VBOX, vmName, "/bin/cat /home/worker/shared/hello.txt");
+		ExecutionResult exec = ourVirt.exec(HypervisorType.VBOXSDK, 
+				vmName, "/bin/cat /home/worker/shared/mainteste.txt");
 		System.out.println(exec.getReturnValue());
 		System.out.println(exec.getStdOut().toString());
 		
-//		ourVirt.destroy(HypervisorType.VBOX, vmName);
+//		ourVirt.destroy(HypervisorType.VBOXSDK, vmName);
 	}
 	
 }

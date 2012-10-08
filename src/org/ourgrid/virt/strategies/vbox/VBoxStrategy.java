@@ -167,11 +167,8 @@ public class VBoxStrategy implements HypervisorStrategy {
 			throw new IllegalArgumentException("Shared folder [" + shareName + "] does not exist.");
 		}
 
-		String password = virtualMachine.getConfiguration().get(
-				VirtualMachineConstants.GUEST_PASSWORD);
-
-		String user = virtualMachine.getConfiguration().get(
-				VirtualMachineConstants.GUEST_USER);
+		String password = virtualMachine.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
+		String user = virtualMachine.getProperty(VirtualMachineConstants.GUEST_USER);
 
 		if (HypervisorUtils.isWindowsGuest(virtualMachine)) {
 
@@ -328,10 +325,8 @@ public class VBoxStrategy implements HypervisorStrategy {
 			throw new Exception("Unable to execute command. Machine is not started.");
 		}
 
-		String user = virtualMachine.getConfiguration().get(
-				VirtualMachineConstants.GUEST_USER);
-		String password = virtualMachine.getConfiguration().get(
-				VirtualMachineConstants.GUEST_PASSWORD);
+		String user = virtualMachine.getProperty(VirtualMachineConstants.GUEST_USER);
+		String password = virtualMachine.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
 
 		String[] splittedCommand = command.split(" ");
 
@@ -598,11 +593,8 @@ public class VBoxStrategy implements HypervisorStrategy {
 			throw new Exception("Unable to unmount shared folder. Machine is not started.");
 		}
 
-		String password = virtualMachine.getConfiguration().get(
-				VirtualMachineConstants.GUEST_PASSWORD);
-
-		String user = virtualMachine.getConfiguration().get(
-				VirtualMachineConstants.GUEST_USER);
+		String password = virtualMachine.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
+		String user = virtualMachine.getProperty(VirtualMachineConstants.GUEST_USER);
 
 		if (HypervisorUtils.isWindowsGuest(virtualMachine)) {
 

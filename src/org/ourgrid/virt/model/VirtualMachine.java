@@ -10,7 +10,7 @@ import java.util.Map;
 public class VirtualMachine {
 
 	private String name;
-	private Map<String, String> configuration = new HashMap<String, String>();
+	private Map<String, Object> configuration = new HashMap<String, Object>();
 
 	public VirtualMachine(String name) {
 		this.name = name;
@@ -24,20 +24,22 @@ public class VirtualMachine {
 		this.name = name;
 	}
 
-	public Map<String, String> getConfiguration() {
-		return new HashMap<String, String>(configuration);
+	public Map<String, Object> getConfiguration() {
+		return new HashMap<String, Object>(configuration);
 	}
 
-	public void setConfiguration(Map<String, String> configuration) {
+	public void setConfiguration(Map<String, ?> configuration) {
 		this.configuration.clear();
 		this.configuration.putAll(configuration);
 	}
 
-	public void setProperty(String property, String value) {
+	public void setProperty(String property, Object value) {
 		this.configuration.put(property, value);
 	}
 
-	public String getProperty(String property) {
-		return this.configuration.get(property);
+	@SuppressWarnings("unchecked")
+	public <T> T getProperty(String property) {
+		return (T) this.configuration.get(property);
 	}
+
 }

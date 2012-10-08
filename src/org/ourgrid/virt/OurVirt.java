@@ -32,7 +32,7 @@ public class OurVirt {
 	 * @param configuration the configuration map
 	 * @see OurVirt#create(HypervisorType, String)
 	 */
-	public void register(String vmName, Map<String, String> configuration) {
+	public void register(String vmName, Map<String, ?> configuration) {
 		VirtualMachine vm = new VirtualMachine(vmName);
 		vm.setConfiguration(configuration);
 		vMCache.put(vmName, vm);

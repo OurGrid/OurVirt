@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.ourgrid.virt.model.HypervisorType;
+import org.ourgrid.virt.strategies.vbox.VBoxSdkStrategy;
 import org.ourgrid.virt.strategies.vbox.VBoxStrategy;
 import org.ourgrid.virt.strategies.vserver.VServerStrategy;
 
@@ -31,6 +32,8 @@ public class HypervisorStrategyFactory {
 		switch (hypervisorType) {
 		case VBOX:
 			return new VBoxStrategy();
+		case VBOXSDK:
+			return new VBoxSdkStrategy();
 		case VSERVER:
 			return new VServerStrategy();
 		default:
