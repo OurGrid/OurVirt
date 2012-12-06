@@ -75,6 +75,10 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		if (status.equals(VirtualMachineStatus.RUNNING)) {
 			return;
 		}
+		
+		if (!status.equals(VirtualMachineStatus.NOT_CREATED)) {
+			destroy(virtualMachine);
+		}
 
 		register(virtualMachine);
 		define(virtualMachine);
@@ -103,14 +107,18 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
 		ISession session = getSession(virtualMachine);
 		machine.lockMachine(session, LockType.Shared);
-		
-		IMachine mutable = session.getMachine();
-		IMedium medium = vbox.openMedium(diskPath,
-				DeviceType.HardDisk, AccessMode.ReadWrite, true);
-		mutable.attachDevice(DISK_CONTROLLER_NAME, 0, 0, DeviceType.HardDisk,
-				medium);
-		mutable.saveSettings();
-		session.unlockMachine();
+		try {
+			IMachine mutable = session.getMachine();
+			IMedium medium = vbox.openMedium(diskPath,
+					DeviceType.HardDisk, AccessMode.ReadWrite, true);
+			mutable.attachDevice(DISK_CONTROLLER_NAME, 0, 0, DeviceType.HardDisk,
+					medium);
+			mutable.saveSettings();
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			session.unlockMachine();
+		}
 	}
 
 	/**
@@ -125,26 +133,35 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	 * @return
 	 * @throws Exception
 	 */
-	private boolean define(VirtualMachine virtualMachine)
-			throws Exception {
+	private boolean define(VirtualMachine virtualMachine) throws Exception {
 
-		String memory = virtualMachine.getProperty(VirtualMachineConstants.MEMORY);
-		String diskType = virtualMachine.getProperty(VirtualMachineConstants.DISK_TYPE);
-		String networkType = virtualMachine.getProperty(VirtualMachineConstants.NETWORK_TYPE);
-		
+		String memory = virtualMachine
+				.getProperty(VirtualMachineConstants.MEMORY);
+		String diskType = virtualMachine
+				.getProperty(VirtualMachineConstants.DISK_TYPE);
+		String networkType = virtualMachine
+				.getProperty(VirtualMachineConstants.NETWORK_TYPE);
+		String networkAdapterName = virtualMachine
+				.getProperty(VirtualMachineConstants.NETWORK_ADAPTER_NAME);
+
 		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
 		ISession session = getSession(virtualMachine);
 		machine.lockMachine(session, LockType.Shared);
-		
-		IMachine mutable = session.getMachine();
-		mutable.setMemorySize(Long.valueOf(memory));
-		INetworkAdapter networkAdapter = mutable.getNetworkAdapter(0L);
-		networkAdapter.setAttachmentType(getNetworkAttachmentType(networkType));
-		networkAdapter.setHostOnlyInterface("vboxnet0");
-		
-		mutable.addStorageController(DISK_CONTROLLER_NAME, getStorageBus(diskType));
-		mutable.saveSettings();
-		session.unlockMachine();
+		try {
+			IMachine mutable = session.getMachine();
+			mutable.setMemorySize(Long.valueOf(memory));
+			INetworkAdapter networkAdapter = mutable.getNetworkAdapter(0L);
+			networkAdapter.setAttachmentType(getNetworkAttachmentType(networkType));
+			networkAdapter.setHostOnlyInterface(networkAdapterName);
+	
+			mutable.addStorageController(DISK_CONTROLLER_NAME,
+					getStorageBus(diskType));
+			mutable.saveSettings();
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			session.unlockMachine();
+		}
 
 		return true;
 	}
@@ -284,12 +301,16 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
 		ISession session = getSession(virtualMachine);
 		IProgress prog = machine.launchVMProcess(session, "headless", "");
-
-		prog.waitForCompletion(-1);
-		if (prog.getResultCode() != 0) {
-			throw new Exception("Could not start VM");
+		try {
+			prog.waitForCompletion(-1);
+			if (prog.getResultCode() != 0) {
+				throw new Exception("Could not start VM");
+			}
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			session.unlockMachine();
 		}
-		session.unlockMachine();
 	}
 	
 	@Override
@@ -301,15 +322,18 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		ISession session = getSession(virtualMachine);
 		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
 		machine.lockMachine(session, LockType.Shared);
-		IConsole console = session.getConsole();
-
-		IProgress shutDownProg = console.powerDown();
-		shutDownProg.waitForCompletion(-1);
-		if (shutDownProg.getResultCode() != 0) {
-			throw new Exception("Cannot stop VM");
+		try {
+			IConsole console = session.getConsole();
+			IProgress shutDownProg = console.powerDown();
+			shutDownProg.waitForCompletion(-1);
+			if (shutDownProg.getResultCode() != 0) {
+				throw new Exception("Cannot stop VM");
+			}
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			session.unlockMachine();
 		}
-
-		session.unlockMachine();
 	}
 
 	@Override
@@ -353,20 +377,21 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 					"already exists for virtual machine [ " + vMName + " ].");
 		}
 		
-		ISession session = this.vboxm.getSessionObject();
+		ISession session = getSession(virtualMachine);
 		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
-				
 		machine.lockMachine(session, LockType.Shared);
-		IConsole console = session.getConsole();
-
-		IProgress takeSnapshotProg = console.takeSnapshot(snapshotName, "");
-
-		takeSnapshotProg.waitForCompletion(-1);
-		if (takeSnapshotProg.getResultCode() != 0) {
-			throw new Exception("Cannot take snapshot from VM");
+		try {
+			IConsole console = session.getConsole();
+			IProgress takeSnapshotProg = console.takeSnapshot(snapshotName, "");
+			takeSnapshotProg.waitForCompletion(-1);
+			if (takeSnapshotProg.getResultCode() != 0) {
+				throw new Exception("Cannot take snapshot from VM");
+			}
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			session.unlockMachine();
 		}
-		
-		session.unlockMachine();
 	}
 
 	@Override
@@ -384,19 +409,21 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		}
 		
 		IMachine machine = this.vbox.findMachine(vMName);
-		
 		ISession session = getSession(virtualMachine);
 		machine.lockMachine(session, LockType.Shared);
-		IConsole console = session.getConsole();
-
-		IProgress restoreSnapshotProg = console.restoreSnapshot(machine
-				.findSnapshot(snapshotName));
-
-		restoreSnapshotProg.waitForCompletion(-1);
-		if (restoreSnapshotProg.getResultCode() != 0) {
-			throw new Exception("Cannot restore snapshot from VM");
+		try {
+			IConsole console = session.getConsole();
+			IProgress restoreSnapshotProg = console.restoreSnapshot(machine
+					.findSnapshot(snapshotName));
+			restoreSnapshotProg.waitForCompletion(-1);
+			if (restoreSnapshotProg.getResultCode() != 0) {
+				throw new Exception("Cannot restore snapshot from VM");
+			}
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			session.unlockMachine();
 		}
-		session.unlockMachine();
 	}
 
 	@Override
@@ -408,22 +435,24 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		
 		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
 		ISession session = getSession(virtualMachine);
-		
-		machine.lockMachine(session, LockType.Shared);
-		
-		IConsole console = session.getConsole();
-		if (machine.getCurrentSnapshot() != null) {
-			console.deleteSnapshot(machine.getCurrentSnapshot().getId());
-		}
-		
-		session.unlockMachine();
-		
 		machine.lockMachine(session, LockType.Write);
-		IMachine mutable = session.getMachine();
-		mutable.removeStorageController(DISK_CONTROLLER_NAME);
-		mutable.saveSettings();
-		session.unlockMachine();
-
+		try {
+			IConsole console = session.getConsole();
+			if (machine.getCurrentSnapshot() != null) {
+				IProgress deleteSnapshotProg = console.deleteSnapshot(machine.getCurrentSnapshot().getId());
+				deleteSnapshotProg.waitForCompletion(-1);
+				if (deleteSnapshotProg.getResultCode() != 0) {
+					throw new Exception("Cannot delete snapshot from VM");
+				}
+			}
+			IMachine mutable = session.getMachine();
+			mutable.removeStorageController(DISK_CONTROLLER_NAME);
+			mutable.saveSettings();
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			session.unlockMachine();
+		}
 		machine.delete(machine.unregister(CleanupMode.Full));
 	}
 
@@ -435,22 +464,39 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
 		ISession session = getSession(virtualMachine);
 		machine.lockMachine(session, LockType.Shared);
-		IMachine mutable = session.getMachine();
-		mutable.createSharedFolder(shareName, hostPath, true, false);
-		mutable.saveSettings();
-		session.unlockMachine();
+		try {
+			IMachine mutable = session.getMachine();
+			mutable.createSharedFolder(shareName, hostPath, true, false);
+			mutable.saveSettings();
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			session.unlockMachine();
+		}
 	}
 	
 	@Override
 	public void deleteSharedFolder(VirtualMachine virtualMachine,
 			String shareName) throws Exception {
+		
+		List<String> sharedFolders = listSharedFolders(virtualMachine);
+		
+		if (!sharedFolders.contains(shareName)) {
+			return;
+		}
+		
 		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
 		ISession session = getSession(virtualMachine);
 		machine.lockMachine(session, LockType.Shared);
-		IMachine mutable = session.getMachine();
-		mutable.removeSharedFolder(shareName);
-		mutable.saveSettings();
-		session.unlockMachine();
+		try {
+			IMachine mutable = session.getMachine();
+			mutable.removeSharedFolder(shareName);
+			mutable.saveSettings();
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			session.unlockMachine();
+		}
 	}
 
 	private List<String> list(boolean onlyRunning) throws Exception {
@@ -546,8 +592,7 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	public void clone(String sourceDevice, String destDevice) throws Exception {
 		IMedium medium = this.vbox.openMedium(sourceDevice,
 				DeviceType.HardDisk, AccessMode.ReadWrite, true);
-		IMedium medium2 = this.vbox.openMedium(destDevice, DeviceType.HardDisk,
-				AccessMode.ReadWrite, true);
+		IMedium medium2 = this.vbox.createHardDisk(medium.getFormat(),destDevice);
 
 		IProgress cloneHdProg = medium.cloneTo(medium2,
 				(long) MediumVariant.Standard.value(), medium.getBase());
