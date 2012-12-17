@@ -659,4 +659,11 @@ public class VBoxStrategy implements HypervisorStrategy {
 		
 	}
 
+	@Override
+	public Object getProperty(VirtualMachine registeredVM, String propertyName)
+			throws Exception {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }

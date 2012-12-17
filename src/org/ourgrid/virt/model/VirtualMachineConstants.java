@@ -24,5 +24,11 @@ public class VirtualMachineConstants {
 	 * In seconds
 	 */
 	public static final String START_TIMEOUT = "starttimeout";
+
+	public static final String IP = "ip";
+	
+	public static final String MAC = "mac";
+	
+	public static final String BRIDGED_INTERFACE = "bridgedinterface";
 	
 }

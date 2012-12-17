@@ -179,5 +179,7 @@ public interface HypervisorStrategy {
 	void deleteSharedFolder(VirtualMachine registeredVM, String shareName) throws Exception;
 	
 	void clone(String sourceDevice, String destDevice) throws Exception;
-	
+
+	Object getProperty(VirtualMachine registeredVM, String propertyName) throws Exception;
+
 }

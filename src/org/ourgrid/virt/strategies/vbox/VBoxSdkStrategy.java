@@ -143,6 +143,8 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 				.getProperty(VirtualMachineConstants.NETWORK_TYPE);
 		String networkAdapterName = virtualMachine
 				.getProperty(VirtualMachineConstants.NETWORK_ADAPTER_NAME);
+		String mac = virtualMachine.getProperty(VirtualMachineConstants.MAC);
+		String bridgedInterface = virtualMachine.getProperty(VirtualMachineConstants.BRIDGED_INTERFACE);
 
 		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
 		ISession session = getSession(virtualMachine);
@@ -152,8 +154,15 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 			mutable.setMemorySize(Long.valueOf(memory));
 			INetworkAdapter networkAdapter = mutable.getNetworkAdapter(0L);
 			networkAdapter.setAttachmentType(getNetworkAttachmentType(networkType));
-			networkAdapter.setHostOnlyInterface(networkAdapterName);
-	
+			if (networkAdapterName != null) {
+				networkAdapter.setHostOnlyInterface(networkAdapterName);
+			}
+			if (mac != null) {
+				networkAdapter.setMACAddress(mac);
+			}
+			if (bridgedInterface != null) {
+				networkAdapter.setBridgedInterface(bridgedInterface);
+			}
 			mutable.addStorageController(DISK_CONTROLLER_NAME,
 					getStorageBus(diskType));
 			mutable.saveSettings();
@@ -171,6 +180,10 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 			return NetworkAttachmentType.Internal;
 		} else if ("host-only".equals(networkType.toLowerCase())) {
 			return NetworkAttachmentType.HostOnly;
+		} else if ("nat".equals(networkType.toLowerCase())) {
+			return NetworkAttachmentType.NAT;
+		} else if ("bridged".equals(networkType.toLowerCase())) {
+			return NetworkAttachmentType.Bridged;
 		}
 		return null;
 	}
@@ -602,4 +615,20 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 			throw new Exception("Cannot clone the HD");
 		}
 	}
+
+	@Override
+	public Object getProperty(VirtualMachine registeredVM, String propertyName)
+			throws Exception {
+		Object property = registeredVM.getProperty(propertyName);
+		if (property != null) {
+			return property;
+		}
+		if (propertyName.equals(VirtualMachineConstants.IP)) {
+			IMachine machine = vbox.findMachine(registeredVM.getName());
+			String ip = machine.getGuestPropertyValue(IP_GUEST_PROPERTY);
+			return ip;
+		}
+		return null;
+	}
+	
 }

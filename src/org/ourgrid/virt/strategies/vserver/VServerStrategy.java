@@ -496,4 +496,11 @@ public class VServerStrategy implements HypervisorStrategy {
 		return contextIdx;
 	}
 
+	@Override
+	public Object getProperty(VirtualMachine registeredVM, String propertyName)
+			throws Exception {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }

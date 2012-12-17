@@ -18,14 +18,14 @@ public class Main {
 	}
 
 	private static void runVmServer(OurVirt ourVirt) throws Exception {
-		String vmName = "owvbox_1";
+		String vmName = "owvbox_12";
 		
 		Map<String, String> conf = new HashMap<String, String>();
 		conf.put(VirtualMachineConstants.GUEST_USER, "worker");
 		conf.put(VirtualMachineConstants.GUEST_PASSWORD, "worker");
 		conf.put(VirtualMachineConstants.MEMORY, "512");
 		conf.put(VirtualMachineConstants.OS, "Linux");
-		conf.put(VirtualMachineConstants.NETWORK_TYPE, "host-only");
+		conf.put(VirtualMachineConstants.NETWORK_TYPE, "nat");
 		conf.put(VirtualMachineConstants.OS_VERSION, "Ubuntu");
 		conf.put(VirtualMachineConstants.DISK_TYPE, "sata");
 		conf.put(VirtualMachineConstants.DISK_IMAGE_PATH, 
@@ -38,25 +38,20 @@ public class Main {
 			ourVirt.stop(HypervisorType.VBOXSDK, vmName);
 		} catch (Exception e) {}
 		
-//		ourVirt.create(HypervisorType.VBOXSDK, vmName);
+		ourVirt.create(HypervisorType.VBOXSDK, vmName);
 		
 		try {
-//			ourVirt.takeSnapshot(HypervisorType.VBOXSDK, vmName, "VMSnapshotTest");
-			ourVirt.restoreSnapshot(HypervisorType.VBOXSDK, vmName, "OurGrid-VM");
+			ourVirt.takeSnapshot(HypervisorType.VBOXSDK, vmName, "OurGrid-VM");
 		} catch (Exception e) {
-//			ourVirt.restoreSnapshot(HypervisorType.VBOXSDK, vmName, "VMSnapshotTest");
+			ourVirt.restoreSnapshot(HypervisorType.VBOXSDK, vmName, "OurGrid-VM");
 		}
 		
 //		ourVirt.deleteSharedFolder(HypervisorType.VBOXSDK, vmName, "shared-home");
-//		ourVirt.createSharedFolder(HypervisorType.VBOXSDK, vmName, 
-//				"shared-home", "/home/marcosancj/tmp", "/home/worker/shared");
+		ourVirt.createSharedFolder(HypervisorType.VBOXSDK, vmName, 
+				"shared-home", "/home/marcosancj/tmp", "/home/worker/shared");
 		
 		ourVirt.start(HypervisorType.VBOXSDK, vmName);
 		
-		try {
-			Thread.sleep(10000);
-			ourVirt.takeSnapshot(HypervisorType.VBOXSDK, vmName, "OurGrid-VM");
-		} catch (Exception e) {}
 		
 		ourVirt.mountSharedFolder(HypervisorType.VBOXSDK, vmName, 
 				"shared-home", "/home/marcosancj/tmp", "/home/worker/shared");
@@ -71,7 +66,8 @@ public class Main {
 		System.out.println(exec.getReturnValue());
 		System.out.println(exec.getStdOut().toString());
 		
-//		ourVirt.destroy(HypervisorType.VBOXSDK, vmName);
+		ourVirt.stop(HypervisorType.VBOXSDK, vmName);
+		ourVirt.destroy(HypervisorType.VBOXSDK, vmName);
 	}
 	
 }

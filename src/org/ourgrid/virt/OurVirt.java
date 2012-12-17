@@ -283,4 +283,9 @@ public class OurVirt {
 	public void clone(HypervisorType hypervisor, String sourceDevice, String destDevice) throws Exception {
 		factory.get(hypervisor).clone(sourceDevice, destDevice);
 	}
+	
+	public Object getProperty(HypervisorType hypervisor, String vmName, 
+			String propertyName) throws Exception {
+		return factory.get(hypervisor).getProperty(getRegisteredVM(vmName), propertyName);
+	}
 }
