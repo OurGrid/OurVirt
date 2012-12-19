@@ -213,7 +213,12 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		}
 
 		startVirtualMachine(virtualMachine);
-		checkOSStarted(virtualMachine);
+		
+		Boolean checkOSStarted = (Boolean) getProperty(virtualMachine, VirtualMachineConstants.CHECK_OS_STARTED);
+		
+		if (checkOSStarted != null & checkOSStarted) {
+			checkOSStarted(virtualMachine);
+		}
 	}
 	
 	private void checkOSStarted(VirtualMachine virtualMachine)
@@ -257,15 +262,18 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	private SSHClient createSSHClient(VirtualMachine virtualMachine) throws Exception {
 		String user = virtualMachine.getProperty(VirtualMachineConstants.GUEST_USER);
 		String password = virtualMachine.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
-		IMachine machine = vbox.findMachine(virtualMachine.getName());
-		String ip = machine.getGuestPropertyValue(IP_GUEST_PROPERTY);
+		
+		String ip = (String) getProperty(virtualMachine, VirtualMachineConstants.IP);
+		
 		if (ip == null) {
 			throw new Exception("Could not acquire IP.");
 		}
+		
 		SSHClient ssh = new SSHClient();
 		ssh.addHostKeyVerifier(createBlankHostKeyVerifier());
 		ssh.connect(ip);
 		ssh.authPassword(user,password);
+		
 		return ssh;
 	}
 
@@ -623,12 +631,19 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		if (property != null) {
 			return property;
 		}
+		
 		if (propertyName.equals(VirtualMachineConstants.IP)) {
 			IMachine machine = vbox.findMachine(registeredVM.getName());
-			String ip = machine.getGuestPropertyValue(IP_GUEST_PROPERTY);
-			return ip;
+			return machine.getGuestPropertyValue(IP_GUEST_PROPERTY);
 		}
+		
 		return null;
+	}
+
+	@Override
+	public void setProperty(VirtualMachine registeredVM, String propertyName,
+			Object propertyValue) throws Exception {
+		registeredVM.setProperty(propertyName, propertyValue);
 	}
 	
 }

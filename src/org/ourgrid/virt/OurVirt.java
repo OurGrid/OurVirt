@@ -288,4 +288,9 @@ public class OurVirt {
 			String propertyName) throws Exception {
 		return factory.get(hypervisor).getProperty(getRegisteredVM(vmName), propertyName);
 	}
+	
+	public void setProperty(HypervisorType hypervisor, String vmName, 
+			String propertyName, Object propertyValue) throws Exception {
+		factory.get(hypervisor).setProperty(getRegisteredVM(vmName), propertyName, propertyValue);
+	}
 }

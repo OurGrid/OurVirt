@@ -27,6 +27,8 @@ public class VirtualMachineConstants {
 
 	public static final String IP = "ip";
 	
+	public static final String CHECK_OS_STARTED = "checkosstarted";
+	
 	public static final String MAC = "mac";
 	
 	public static final String BRIDGED_INTERFACE = "bridgedinterface";

@@ -503,4 +503,11 @@ public class VServerStrategy implements HypervisorStrategy {
 		return null;
 	}
 
+	@Override
+	public void setProperty(VirtualMachine registeredVM, String propertyName,
+			Object propertyValue) throws Exception {
+		// TODO Auto-generated method stub
+		
+	}
+
 }
