@@ -182,6 +182,7 @@ public interface HypervisorStrategy {
 
 	Object getProperty(VirtualMachine registeredVM, String propertyName) throws Exception;
 
-	void setProperty(VirtualMachine registeredVM, String propertyName, Object propertyValue) throws Exception;
+	void setProperty(VirtualMachine registeredVM, String propertyName,
+			Object propertyValue) throws Exception;
 
 }

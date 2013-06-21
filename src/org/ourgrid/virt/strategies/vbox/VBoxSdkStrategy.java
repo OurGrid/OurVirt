@@ -21,6 +21,7 @@ import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
 import org.virtualbox_4_2.AccessMode;
+import org.virtualbox_4_2.CPUPropertyType;
 import org.virtualbox_4_2.CleanupMode;
 import org.virtualbox_4_2.DeviceType;
 import org.virtualbox_4_2.IConsole;
@@ -33,25 +34,22 @@ import org.virtualbox_4_2.ISharedFolder;
 import org.virtualbox_4_2.IVirtualBox;
 import org.virtualbox_4_2.LockType;
 import org.virtualbox_4_2.MachineState;
-import org.virtualbox_4_2.MediumVariant;
 import org.virtualbox_4_2.NetworkAttachmentType;
+import org.virtualbox_4_2.SessionState;
 import org.virtualbox_4_2.StorageBus;
+import org.virtualbox_4_2.VBoxException;
 import org.virtualbox_4_2.VirtualBoxManager;
-
 
 
 public class VBoxSdkStrategy implements HypervisorStrategy {
 
 	private static final String VM_BLANK_FLAGS = "forceOverwrite=1,UUID=00000000-0000-0000-0000-000000000000";
-
 	private static final String IP_GUEST_PROPERTY = "/VirtualBox/GuestInfo/Net/0/V4/IP";
-
 	private static final String SESSION = "VBOX_SESSION";
-	
 	private static final String DISK_CONTROLLER_NAME = "Disk Controller";
 	private final int START_RECHECK_DELAY = 10;
-	
-	private final VirtualBoxManager vboxm = VirtualBoxManager.createInstance(null);
+	private final VirtualBoxManager vboxm = VirtualBoxManager.createInstance(
+			System.getProperty("vbox.home"));
 	private IVirtualBox vbox;
 	
 	public VBoxSdkStrategy(){
@@ -76,10 +74,6 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 			return;
 		}
 		
-		if (!status.equals(VirtualMachineStatus.NOT_CREATED)) {
-			destroy(virtualMachine);
-		}
-
 		register(virtualMachine);
 		define(virtualMachine);
 
@@ -117,7 +111,7 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		} catch (Exception e) {
 			throw e;
 		} finally {
-			session.unlockMachine();
+			unlock(session);
 		}
 	}
 
@@ -144,7 +138,13 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		String networkAdapterName = virtualMachine
 				.getProperty(VirtualMachineConstants.NETWORK_ADAPTER_NAME);
 		String mac = virtualMachine.getProperty(VirtualMachineConstants.MAC);
-		String bridgedInterface = virtualMachine.getProperty(VirtualMachineConstants.BRIDGED_INTERFACE);
+		String bridgedInterface = virtualMachine.getProperty(
+				VirtualMachineConstants.BRIDGED_INTERFACE);
+		String paeEnabled = virtualMachine.getProperty(VirtualMachineConstants.PAE_ENABLED);
+		boolean pae = false;
+		if (paeEnabled != null) {
+			pae = Boolean.valueOf(paeEnabled);
+		}
 
 		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
 		ISession session = getSession(virtualMachine);
@@ -163,13 +163,18 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 			if (bridgedInterface != null) {
 				networkAdapter.setBridgedInterface(bridgedInterface);
 			}
-			mutable.addStorageController(DISK_CONTROLLER_NAME,
+			try {
+				mutable.addStorageController(DISK_CONTROLLER_NAME,
 					getStorageBus(diskType));
+			} catch (VBoxException e) {
+				// Do nothing the controller already exists
+			}
+			mutable.setCPUProperty(CPUPropertyType.PAE, pae);
 			mutable.saveSettings();
 		} catch (Exception e) {
 			throw e;
 		} finally {
-			session.unlockMachine();
+			unlock(session);
 		}
 
 		return true;
@@ -213,12 +218,7 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		}
 
 		startVirtualMachine(virtualMachine);
-		
-		Boolean checkOSStarted = (Boolean) getProperty(virtualMachine, VirtualMachineConstants.CHECK_OS_STARTED);
-		
-		if (checkOSStarted != null & checkOSStarted) {
-			checkOSStarted(virtualMachine);
-		}
+		checkOSStarted(virtualMachine);
 	}
 	
 	private void checkOSStarted(VirtualMachine virtualMachine)
@@ -262,18 +262,15 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	private SSHClient createSSHClient(VirtualMachine virtualMachine) throws Exception {
 		String user = virtualMachine.getProperty(VirtualMachineConstants.GUEST_USER);
 		String password = virtualMachine.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
-		
-		String ip = (String) getProperty(virtualMachine, VirtualMachineConstants.IP);
-		
+		IMachine machine = vbox.findMachine(virtualMachine.getName());
+		String ip = machine.getGuestPropertyValue(IP_GUEST_PROPERTY);
 		if (ip == null) {
 			throw new Exception("Could not acquire IP.");
 		}
-		
 		SSHClient ssh = new SSHClient();
 		ssh.addHostKeyVerifier(createBlankHostKeyVerifier());
 		ssh.connect(ip);
 		ssh.authPassword(user,password);
-		
 		return ssh;
 	}
 
@@ -325,11 +322,17 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		try {
 			prog.waitForCompletion(-1);
 			if (prog.getResultCode() != 0) {
-				throw new Exception("Could not start VM");
+				throw new Exception("Could not start VM. " + prog.getErrorInfo().getText());
 			}
 		} catch (Exception e) {
 			throw e;
 		} finally {
+			unlock(session);
+		}
+	}
+
+	private void unlock(ISession session) {
+		if (session.getState().equals(SessionState.Locked)) {
 			session.unlockMachine();
 		}
 	}
@@ -348,12 +351,12 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 			IProgress shutDownProg = console.powerDown();
 			shutDownProg.waitForCompletion(-1);
 			if (shutDownProg.getResultCode() != 0) {
-				throw new Exception("Cannot stop VM");
+				throw new Exception("Cannot stop VM. " + shutDownProg.getErrorInfo().getText());
 			}
 		} catch (Exception e) {
 			throw e;
 		} finally {
-			session.unlockMachine();
+			unlock(session);
 		}
 	}
 
@@ -406,12 +409,13 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 			IProgress takeSnapshotProg = console.takeSnapshot(snapshotName, "");
 			takeSnapshotProg.waitForCompletion(-1);
 			if (takeSnapshotProg.getResultCode() != 0) {
-				throw new Exception("Cannot take snapshot from VM");
+				throw new Exception("Cannot take snapshot from VM. " + 
+						takeSnapshotProg.getErrorInfo().getText());
 			}
 		} catch (Exception e) {
 			throw e;
 		} finally {
-			session.unlockMachine();
+			unlock(session);
 		}
 	}
 
@@ -438,12 +442,13 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 					.findSnapshot(snapshotName));
 			restoreSnapshotProg.waitForCompletion(-1);
 			if (restoreSnapshotProg.getResultCode() != 0) {
-				throw new Exception("Cannot restore snapshot from VM");
+				throw new Exception("Cannot restore snapshot from VM. " + 
+						restoreSnapshotProg.getErrorInfo().getText());
 			}
 		} catch (Exception e) {
 			throw e;
 		} finally {
-			session.unlockMachine();
+			unlock(session);
 		}
 	}
 
@@ -463,16 +468,21 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 				IProgress deleteSnapshotProg = console.deleteSnapshot(machine.getCurrentSnapshot().getId());
 				deleteSnapshotProg.waitForCompletion(-1);
 				if (deleteSnapshotProg.getResultCode() != 0) {
-					throw new Exception("Cannot delete snapshot from VM");
+					throw new Exception("Cannot delete snapshot from VM. " + 
+							deleteSnapshotProg.getErrorInfo().getText());
 				}
 			}
 			IMachine mutable = session.getMachine();
-			mutable.removeStorageController(DISK_CONTROLLER_NAME);
+			try {
+				mutable.removeStorageController(DISK_CONTROLLER_NAME);
+			} catch (VBoxException e) {
+				// Do nothing if the controller does not exist
+			}
 			mutable.saveSettings();
 		} catch (Exception e) {
 			throw e;
 		} finally {
-			session.unlockMachine();
+			unlock(session);
 		}
 		machine.delete(machine.unregister(CleanupMode.Full));
 	}
@@ -492,7 +502,7 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		} catch (Exception e) {
 			throw e;
 		} finally {
-			session.unlockMachine();
+			unlock(session);
 		}
 	}
 	
@@ -516,7 +526,7 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		} catch (Exception e) {
 			throw e;
 		} finally {
-			session.unlockMachine();
+			unlock(session);
 		}
 	}
 
@@ -608,20 +618,44 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 
 	@Override
 	public void prepareEnvironment(String userName) throws Exception {}
+	
+	private static ProcessBuilder getProcessBuilder(
+			String cmd) throws Exception {
+
+		String vboxManageCmdLine = "VBoxManage --nologo " + cmd;
+		ProcessBuilder processBuilder = null;
+
+		String vBoxInstallPath = System.getenv().get("VBOX_INSTALL_PATH");
+
+		if (HypervisorUtils.isWindowsHost()) {
+			if (!new File(vBoxInstallPath + "\\VBoxManage.exe").exists()) {
+				vBoxInstallPath = null;
+			}
+			processBuilder = new ProcessBuilder("cmd", 
+					"/C " + vboxManageCmdLine);
+
+		} else if (HypervisorUtils.isLinuxHost()) {
+			String vBoxManageDir = System.getenv().get("VBOX_HOME");
+			vboxManageCmdLine = vBoxManageDir + "/" + vboxManageCmdLine;
+			List<String> matchList = HypervisorUtils.splitCmdLine(vboxManageCmdLine); 
+			processBuilder =  new ProcessBuilder(matchList.toArray(new String[]{}));
+
+		} else {
+			throw new Exception("Host OS not supported");
+		}
+
+		if (vBoxInstallPath != null) {
+			processBuilder.directory(new File(vBoxInstallPath));
+		}
+
+		return processBuilder;
+	}
 
 	@Override
 	public void clone(String sourceDevice, String destDevice) throws Exception {
-		IMedium medium = this.vbox.openMedium(sourceDevice,
-				DeviceType.HardDisk, AccessMode.ReadWrite, true);
-		IMedium medium2 = this.vbox.createHardDisk(medium.getFormat(),destDevice);
-
-		IProgress cloneHdProg = medium.cloneTo(medium2,
-				(long) MediumVariant.Standard.value(), medium.getBase());
-
-		cloneHdProg.waitForCompletion(-1);
-		if (cloneHdProg.getResultCode() != 0) {
-			throw new Exception("Cannot clone the HD");
-		}
+		ProcessBuilder startProcessBuilder = getProcessBuilder(
+				"clonehd " + sourceDevice + " " + destDevice);
+		HypervisorUtils.runAndCheckProcess(startProcessBuilder);
 	}
 
 	@Override
@@ -631,19 +665,19 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		if (property != null) {
 			return property;
 		}
-		
 		if (propertyName.equals(VirtualMachineConstants.IP)) {
 			IMachine machine = vbox.findMachine(registeredVM.getName());
-			return machine.getGuestPropertyValue(IP_GUEST_PROPERTY);
+			String ip = machine.getGuestPropertyValue(IP_GUEST_PROPERTY);
+			return ip;
 		}
-		
 		return null;
 	}
 
 	@Override
 	public void setProperty(VirtualMachine registeredVM, String propertyName,
 			Object propertyValue) throws Exception {
-		registeredVM.setProperty(propertyName, propertyValue);
+		// TODO Auto-generated method stub
+		
 	}
 	
 }

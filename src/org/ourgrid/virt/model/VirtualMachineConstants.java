@@ -20,6 +20,8 @@ public class VirtualMachineConstants {
 	
 	public static final String DISK_IMAGE_PATH = "diskimagepath";
 	
+	public static final String PAE_ENABLED = "pae.enabled";
+	
 	/**
 	 * In seconds
 	 */
@@ -27,10 +29,10 @@ public class VirtualMachineConstants {
 
 	public static final String IP = "ip";
 	
-	public static final String CHECK_OS_STARTED = "checkosstarted";
-	
 	public static final String MAC = "mac";
 	
 	public static final String BRIDGED_INTERFACE = "bridgedinterface";
+	
+	public static final String SDK_HOME = "sdkhome";
 	
 }
