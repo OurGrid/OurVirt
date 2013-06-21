@@ -260,8 +260,6 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	}
 	
 	private SSHClient createSSHClient(VirtualMachine virtualMachine) throws Exception {
-		String user = virtualMachine.getProperty(VirtualMachineConstants.GUEST_USER);
-		String password = virtualMachine.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
 		IMachine machine = vbox.findMachine(virtualMachine.getName());
 		String ip = machine.getGuestPropertyValue(IP_GUEST_PROPERTY);
 		if (ip == null) {
@@ -270,7 +268,6 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		SSHClient ssh = new SSHClient();
 		ssh.addHostKeyVerifier(createBlankHostKeyVerifier());
 		ssh.connect(ip);
-		ssh.authPassword(user,password);
 		return ssh;
 	}
 
