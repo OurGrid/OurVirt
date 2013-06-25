@@ -673,7 +673,7 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	@Override
 	public void setProperty(VirtualMachine registeredVM, String propertyName,
 			Object propertyValue) throws Exception {
-		// TODO Auto-generated method stub
+		 registeredVM.setProperty(propertyName, propertyValue); 
 		
 	}
 	
