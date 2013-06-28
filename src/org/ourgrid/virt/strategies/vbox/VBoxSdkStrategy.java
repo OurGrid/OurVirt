@@ -163,11 +163,12 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 			if (bridgedInterface != null) {
 				networkAdapter.setBridgedInterface(bridgedInterface);
 			}
+			
 			try {
 				mutable.addStorageController(DISK_CONTROLLER_NAME,
 					getStorageBus(diskType));
 			} catch (VBoxException e) {
-				// Do nothing the controller already exists
+				// Do nothing for the controller already exists
 			}
 			mutable.setCPUProperty(CPUPropertyType.PAE, pae);
 			mutable.saveSettings();
@@ -220,7 +221,7 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		startVirtualMachine(virtualMachine);
 		checkOSStarted(virtualMachine);
 	}
-	
+
 	private void checkOSStarted(VirtualMachine virtualMachine)
 			throws Exception {
 		
@@ -260,8 +261,7 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	}
 	
 	private SSHClient createSSHClient(VirtualMachine virtualMachine) throws Exception {
-		IMachine machine = vbox.findMachine(virtualMachine.getName());
-		String ip = machine.getGuestPropertyValue(IP_GUEST_PROPERTY);
+		String ip = virtualMachine.getProperty(VirtualMachineConstants.IP);
 		if (ip == null) {
 			throw new Exception("Could not acquire IP.");
 		}
@@ -674,7 +674,6 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	public void setProperty(VirtualMachine registeredVM, String propertyName,
 			Object propertyValue) throws Exception {
 		 registeredVM.setProperty(propertyName, propertyValue); 
-		
 	}
 	
 }
