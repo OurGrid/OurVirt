@@ -12,6 +12,7 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.ourgrid.virt.model.HypervisorType;
+import org.ourgrid.virt.model.VirtualMachineConstants;
 
 @SuppressWarnings("static-access")
 public class Main {
@@ -103,7 +104,9 @@ public class Main {
 			if ( user == null ){
 				throw new ParseException("User name must be specified.");
 			}
-			ourVirt.prepareEnvironment(hypervisorType, user);
+			Map<String, String> props = new HashMap<String, String>();
+			props.put(VirtualMachineConstants.HOST_USER, user);
+			ourVirt.prepareEnvironment(hypervisorType, props);
 		} else if (method.equals("exec")) {
 			String cmd = line.getOptionValue("c");
 			if ( cmd == null ){

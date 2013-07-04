@@ -1,6 +1,7 @@
 package org.ourgrid.virt.strategies;
 
 import java.util.List;
+import java.util.Map;
 
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
@@ -168,7 +169,7 @@ public interface HypervisorStrategy {
 	/**
 	 * Prepares the environment for ourvirt user to be able to manage virtual machines using this hypervisor.
 	 */
-	void prepareEnvironment(String userName) throws Exception;
+	void prepareEnvironment(Map<String, String> props) throws Exception;
 
 	/**
 	 * Deletes the specified shared folder.

@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.security.PublicKey;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.connection.channel.direct.Session;
@@ -367,6 +368,10 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		}
 
 		SSHClient sshClient = createSSHClient(virtualMachine);
+		String user = virtualMachine.getProperty(VirtualMachineConstants.GUEST_USER);
+	    String password = virtualMachine.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
+		sshClient.authPassword(user, password);
+	    
 		Session session = sshClient.startSession();
 		Command command = session.exec(commandLine);
 
@@ -613,9 +618,6 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		}
 	}
 
-	@Override
-	public void prepareEnvironment(String userName) throws Exception {}
-	
 	private static ProcessBuilder getProcessBuilder(
 			String cmd) throws Exception {
 
@@ -674,6 +676,12 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	public void setProperty(VirtualMachine registeredVM, String propertyName,
 			Object propertyValue) throws Exception {
 		 registeredVM.setProperty(propertyName, propertyValue); 
+	}
+
+	@Override
+	public void prepareEnvironment(Map<String, String> props) throws Exception {
+		// TODO Auto-generated method stub
+		
 	}
 	
 }

@@ -268,16 +268,15 @@ public class OurVirt {
 	}
 	
 	/**
-	 * Prepares the environment for the user indicated by the user parameter
-	 * to use the hypervisor type. You will probably need admin privileges
-	 * to run this method. 
+	 * Prepares the environment using the specified properties. 
+	 * You will probably need admin privileges to run this method. 
 	 * @param hypervisor the hypervisor you want to prepare the environment for
-	 * @param userName the user that will be ready to use the hypervisor methods
+	 * @param props properties required by the hypervisor
 	 * @throws Exception probably if you don't have admin privileges or the underlying
 	 * syetem is not supported by OurVirt.
 	 */
-	public void prepareEnvironment(HypervisorType hypervisor, String userName) throws Exception {
-		factory.get(hypervisor).prepareEnvironment(userName);
+	public void prepareEnvironment(HypervisorType hypervisor, Map<String, String> props) throws Exception {
+		factory.get(hypervisor).prepareEnvironment(props);
 	}
 	
 	public void clone(HypervisorType hypervisor, String sourceDevice, String destDevice) throws Exception {

@@ -1,6 +1,10 @@
 package org.ourgrid.virt;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.ourgrid.virt.model.HypervisorType;
+import org.ourgrid.virt.model.VirtualMachineConstants;
 import org.ourgrid.virt.strategies.HypervisorStrategyFactory;
 
 public class PrepareEnvironment {
@@ -16,7 +20,10 @@ public class PrepareEnvironment {
 			throw new Exception("Hypervisor type " + hypervisorTypeStr + " not supported by OurVirt.");
 		}
 		
-		factory.get(hypervisorType).prepareEnvironment(ourVirtUser);
+		Map<String, String> props = new HashMap<String, String>();
+		props.put(VirtualMachineConstants.HOST_USER, ourVirtUser);
+		
+		factory.get(hypervisorType).prepareEnvironment(props);
 	}
 	
 }

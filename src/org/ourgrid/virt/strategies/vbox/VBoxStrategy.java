@@ -7,6 +7,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
 import org.ourgrid.virt.exception.SnapshotAlreadyExistsException;
@@ -641,7 +642,8 @@ public class VBoxStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public void prepareEnvironment(String userName) throws Exception {
+	public void prepareEnvironment(Map<String, String> props) throws Exception {
+		String userName = props.get(VirtualMachineConstants.HOST_USER);
 		if ( HypervisorUtils.isLinuxHost() ){
 			LinuxUtils.appendNoPasswdToSudoers(userName, "/usr/bin/VBoxManage");
 		} else if ( HypervisorUtils.isWindowsHost() ){

@@ -6,6 +6,8 @@ public class VirtualMachineConstants {
 	
 	public static final String NETWORK_ADAPTER_NAME = "networkadaptername";
 
+	public static final String HOST_USER = "hostuser";
+	
 	public static final String GUEST_USER = "user";
 	
 	public static final String GUEST_PASSWORD = "password";
@@ -29,10 +31,13 @@ public class VirtualMachineConstants {
 
 	public static final String IP = "ip";
 	
+	public static final String SSH_PORT = "sshport";
+	
 	public static final String MAC = "mac";
 	
 	public static final String BRIDGED_INTERFACE = "bridgedinterface";
 	
 	public static final String SDK_HOME = "sdkhome";
 	
+	public static final Integer DEFAULT_SSH_PORT = 22;
 }

@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
@@ -466,7 +467,8 @@ public class VServerStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public void prepareEnvironment(String userName) throws Exception {
+	public void prepareEnvironment(Map<String, String> props) throws Exception {
+		String userName = props.get(VirtualMachineConstants.HOST_USER);
 		if (HypervisorUtils.isLinuxHost()) {
 			LinuxUtils.appendLineToSudoers("Defaults:" + userName + " !requiretty");
 			LinuxUtils.appendNoPasswdToSudoers(userName,
