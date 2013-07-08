@@ -1,6 +1,9 @@
 package org.ourgrid.virt.strategies.qemu;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.net.Socket;
 import java.security.PublicKey;
 import java.util.HashMap;
 import java.util.List;
@@ -10,6 +13,8 @@ import java.util.Random;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.connection.channel.direct.Session;
 import net.schmizz.sshj.connection.channel.direct.Session.Command;
+import net.schmizz.sshj.sftp.RemoteResourceInfo;
+import net.schmizz.sshj.sftp.SFTPClient;
 import net.schmizz.sshj.transport.TransportException;
 import net.schmizz.sshj.transport.verification.HostKeyVerifier;
 import net.schmizz.sshj.userauth.UserAuthException;
@@ -27,23 +32,23 @@ import org.ourgrid.virt.strategies.HypervisorUtils;
 
 public class QEmuStrategy implements HypervisorStrategy {
 
-	private static final String RESTORE_SNAPSHOT = "RESTORE_SNAPSHOT";
-
 	public static final String QEMU_LOCATION = "QEMU_LOCATION";
 	
+	private static final String RESTORE_SNAPSHOT = "RESTORE_SNAPSHOT";
 	private static final String PROCESS = "QEMU_LOCATION";
 	private static final String DESTROYED = "DESTROYED";
+	private static final String QMP_PORT = "QMP_PORT";
+	private static final String CURRENT_SNAPSHOT = "current";
+	
 	private static final int START_RECHECK_DELAY = 10;
 	private static final String SHARED_FOLDERS = "SHARED_FOLDERS";
 
 	private String qemuLocation;
 	
 	@Override
-	public void start(VirtualMachine virtualMachine) throws Exception {
+	public void start(final VirtualMachine virtualMachine) throws Exception {
 		String hda = virtualMachine.getProperty(VirtualMachineConstants.DISK_IMAGE_PATH);
 		String memory = virtualMachine.getProperty(VirtualMachineConstants.MEMORY);
-		
-		String snapshot = virtualMachine.getProperty(RESTORE_SNAPSHOT);
 		
 		StringBuilder strBuilder = new StringBuilder();
 		strBuilder.append("-net nic")
@@ -51,26 +56,46 @@ public class QEmuStrategy implements HypervisorStrategy {
 		
 		String netType = virtualMachine.getProperty(VirtualMachineConstants.NETWORK_TYPE);
 		if (netType != null && netType.equals("host-only")) {
-			Integer sshPort = new Random().nextInt(10000) + 10000;
-			strBuilder.append(",restrict=yes,hostfwd=tcp:localhost:").append(sshPort).append("-:22");
+			Integer sshPort = randomPort();
+			strBuilder.append(",restrict=yes,hostfwd=tcp:127.0.0.1:").append(sshPort).append("-:22");
 			virtualMachine.setProperty(VirtualMachineConstants.IP, "localhost");
 			virtualMachine.setProperty(VirtualMachineConstants.SSH_PORT, sshPort);
 		}
 			
 		strBuilder.append(" -m ").append(memory);
+		Integer qmpPort = randomPort();
+		strBuilder.append(" -qmp tcp:127.0.0.1:").append(qmpPort).append(",server,nowait,nodelay");
+		virtualMachine.setProperty(QMP_PORT, qmpPort);
 		
-		strBuilder.append(" -hda ");
+		String snapshot = virtualMachine.getProperty(RESTORE_SNAPSHOT);
+		String snapshotLocation = getSnapshotLocation(virtualMachine, CURRENT_SNAPSHOT);
 		
-		if (snapshot != null && new File(snapshot).exists()) {
-			strBuilder.append(snapshot).append(" -snapshot");
+		if (snapshot != null && new File(snapshotLocation).exists()) {
+			strBuilder.append(" -hda \"").append(snapshotLocation).append("\"");
 		} else {
-			strBuilder.append(hda);
+			strBuilder.append(" -hda \"").append(hda).append("\"");
 		}
 		
 		ProcessBuilder builder = getSystemProcessBuilder(strBuilder.toString());
 		virtualMachine.setProperty(PROCESS, builder.start());
 		
+		Runnable runnable = new Runnable() {
+		    public void run() {
+		        try {
+					stop(virtualMachine);
+				} catch (Exception e) {
+					// Best effort
+				}
+		    }
+		};
+		Runtime.getRuntime().addShutdownHook(new Thread(runnable));
+		
 		checkOSStarted(virtualMachine);
+	}
+
+	private static Integer randomPort() {
+		Integer sshPort = new Random().nextInt(10000) + 10000;
+		return sshPort;
 	}
 
 	private void checkOSStarted(VirtualMachine virtualMachine)
@@ -134,6 +159,13 @@ public class QEmuStrategy implements HypervisorStrategy {
 	
 	@Override
 	public void stop(VirtualMachine virtualMachine) throws Exception {
+		Socket s = new Socket("127.0.0.1", (Integer) virtualMachine.getProperty(QMP_PORT));
+		PrintStream ps = new PrintStream(s.getOutputStream());
+		ps.println("{\"execute\":\"qmp_capabilities\"}");
+		ps.println("{\"execute\":\"quit\"}");
+		ps.flush();
+		s.close();
+		
 		Process p = virtualMachine.getProperty(PROCESS);
 		p.destroy();
 		virtualMachine.setProperty(DESTROYED, true);
@@ -163,13 +195,30 @@ public class QEmuStrategy implements HypervisorStrategy {
 	public void takeSnapshot(VirtualMachine virtualMachine, String snapshotName)
 			throws Exception {
 		String hda = virtualMachine.getProperty(VirtualMachineConstants.DISK_IMAGE_PATH);
-		ProcessBuilder builder = getImgProcessBuilder(" create -f qcow2 -b " + hda + " " + snapshotName);
-		builder.start().waitFor();
+		String snapshotFile = getSnapshotLocation(virtualMachine, snapshotName);
+		ProcessBuilder snapBuilder = getImgProcessBuilder(" create -f qcow2 -b " + hda + " " + snapshotFile);
+		snapBuilder.start().waitFor();
+		
+		restoreSnapshot(virtualMachine, snapshotName);
+	}
+
+	private String getSnapshotLocation(VirtualMachine virtualMachine, String snapshotName) {
+		String hda = virtualMachine.getProperty(VirtualMachineConstants.DISK_IMAGE_PATH);
+		String hdaLocation = new File(hda).getParent();
+		String snapshotFile = hdaLocation + "/" + snapshotName + "_" + virtualMachine.getName() + ".img";
+		return snapshotFile;
 	}
 
 	@Override
 	public void restoreSnapshot(VirtualMachine virtualMachine,
 			String snapshotName) throws Exception {
+		
+		String snapshotFile = getSnapshotLocation(virtualMachine, snapshotName);
+		
+		String currentSnapshotFile = getSnapshotLocation(virtualMachine, CURRENT_SNAPSHOT);
+		ProcessBuilder currSnapBuilder = getImgProcessBuilder(" create -f qcow2 -b " + snapshotFile + " " + currentSnapshotFile);
+		currSnapBuilder.start().waitFor();
+		
 		virtualMachine.setProperty(RESTORE_SNAPSHOT, snapshotName);
 	}
 
@@ -183,6 +232,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 		}
 
 		SSHClient sshClient = createAuthSSHClient(virtualMachine);
+		
+		syncSharedFoldersIn(virtualMachine, sshClient);
 	    
 		Session session = sshClient.startSession();
 		Command command = session.exec(commandLine);
@@ -199,9 +250,10 @@ public class QEmuStrategy implements HypervisorStrategy {
 		executionResult.setStdOut(stdOut);
 
 		session.close();
-		sshClient.disconnect();
 
-		syncSharedFolders(virtualMachine);
+		syncSharedFoldersOut(virtualMachine, sshClient);
+		
+		sshClient.disconnect();
 		
 		return executionResult;
 	}
@@ -213,7 +265,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	@Override
 	public void destroy(VirtualMachine virtualMachine) throws Exception {
-		stop(virtualMachine);
+	
 	}
 
 	@Override
@@ -242,9 +294,11 @@ public class QEmuStrategy implements HypervisorStrategy {
 	public void mountSharedFolder(VirtualMachine virtualMachine,
 			String shareName, String hostPath, String guestPath)
 			throws Exception {
+		
 		SSHClient sshClient = createAuthSSHClient(virtualMachine);
-		SCPFileTransfer fileTransfer = sshClient.newSCPFileTransfer();
-		fileTransfer.upload(new FileSystemFile(hostPath), guestPath);
+		sshClient.startSession().exec("mkdir -p " + guestPath);
+		syncSharedFolderIn(hostPath, guestPath, sshClient);
+		sshClient.close();
 		
 		Map<String, SharedFolder> sharedFolders = virtualMachine.getProperty(SHARED_FOLDERS);
 		if (sharedFolders == null) {
@@ -254,16 +308,37 @@ public class QEmuStrategy implements HypervisorStrategy {
 		sharedFolders.put(shareName, new SharedFolder(shareName, hostPath, guestPath));
 	}
 
-	private void syncSharedFolders(VirtualMachine virtualMachine) throws Exception {
+	private void syncSharedFolderIn(String hostPath, String guestPath,
+			SSHClient sshClient) throws IOException {
+		for (File child : new File(hostPath).listFiles()) {
+			SCPFileTransfer fileTransfer = sshClient.newSCPFileTransfer();
+			fileTransfer.upload(new FileSystemFile(child), guestPath);
+		}
+	}
+
+	private void syncSharedFoldersIn(VirtualMachine virtualMachine, SSHClient sshClient) throws Exception {
+		Map<String, SharedFolder> sharedFolders = virtualMachine.getProperty(SHARED_FOLDERS);
+		if (sharedFolders == null || sharedFolders.isEmpty()) {
+			return;
+		}
+		for (SharedFolder sharedFolder : sharedFolders.values()) {
+			syncSharedFolderIn(sharedFolder.hostPath, sharedFolder.guestPath, sshClient);
+		}
+	}
+	
+	private void syncSharedFoldersOut(VirtualMachine virtualMachine, SSHClient sshClient) throws Exception {
 		Map<String, SharedFolder> sharedFolders = virtualMachine.getProperty(SHARED_FOLDERS);
 		if (sharedFolders == null || sharedFolders.isEmpty()) {
 			return;
 		}
 		
-		SSHClient sshClient = createAuthSSHClient(virtualMachine);
 		for (SharedFolder sharedFolder : sharedFolders.values()) {
-			SCPFileTransfer fileTransfer = sshClient.newSCPFileTransfer();
-			fileTransfer.download(sharedFolder.guestPath, new FileSystemFile(sharedFolder.hostPath));
+			SFTPClient sftpClient = sshClient.newSFTPClient();
+			List<RemoteResourceInfo> ls = sftpClient.ls(sharedFolder.guestPath);
+			for (RemoteResourceInfo remoteResourceInfo : ls) {
+				SCPFileTransfer fileTransfer = sshClient.newSCPFileTransfer();
+				fileTransfer.download(remoteResourceInfo.getPath(), new FileSystemFile(sharedFolder.hostPath));
+			}
 		}
 	}
 	
@@ -316,7 +391,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 	
 	private ProcessBuilder getSystemProcessBuilder(String cmd) throws Exception {
-		return getProcessBuilder("qemu-system-i386w --nographic " + cmd);
+		return getProcessBuilder("qemu-system-i386 --nographic " + cmd);
 	}
 	
 	private ProcessBuilder getImgProcessBuilder(String cmd) throws Exception {
@@ -356,5 +431,4 @@ public class QEmuStrategy implements HypervisorStrategy {
 			this.guestPath = guestPath;
 		}
 	}
-	
 }

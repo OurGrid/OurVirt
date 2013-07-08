@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.ourgrid.virt.model.HypervisorType;
+import org.ourgrid.virt.strategies.qemu.QEmuStrategy;
 import org.ourgrid.virt.strategies.vbox.VBoxSdkStrategy;
 import org.ourgrid.virt.strategies.vbox.VBoxStrategy;
 import org.ourgrid.virt.strategies.vserver.VServerStrategy;
@@ -36,6 +37,8 @@ public class HypervisorStrategyFactory {
 			return new VBoxSdkStrategy();
 		case VSERVER:
 			return new VServerStrategy();
+		case QEMU:
+			return new QEmuStrategy();
 		default:
 			return null;
 		}
