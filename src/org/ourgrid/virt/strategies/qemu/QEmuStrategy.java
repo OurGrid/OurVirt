@@ -32,8 +32,6 @@ import org.ourgrid.virt.strategies.HypervisorUtils;
 
 public class QEmuStrategy implements HypervisorStrategy {
 
-	public static final String QEMU_LOCATION = "QEMU_LOCATION";
-	
 	private static final String RESTORE_SNAPSHOT = "RESTORE_SNAPSHOT";
 	private static final String PROCESS = "QEMU_LOCATION";
 	private static final String DESTROYED = "DESTROYED";
@@ -43,8 +41,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final int START_RECHECK_DELAY = 10;
 	private static final String SHARED_FOLDERS = "SHARED_FOLDERS";
 
-	private String qemuLocation;
-	
+	private String qemuLocation = System.getProperty("qemu.home");
+		
 	@Override
 	public void start(final VirtualMachine virtualMachine) throws Exception {
 		String hda = virtualMachine.getProperty(VirtualMachineConstants.DISK_IMAGE_PATH);
@@ -387,7 +385,6 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	@Override
 	public void prepareEnvironment(Map<String, String> props) throws Exception {
-		this.qemuLocation = props.get(QEMU_LOCATION);
 	}
 	
 	private ProcessBuilder getSystemProcessBuilder(String cmd) throws Exception {
