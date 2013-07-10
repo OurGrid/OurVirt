@@ -23,6 +23,7 @@ import net.schmizz.sshj.xfer.scp.SCPFileTransfer;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.log4j.Logger;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
@@ -32,6 +33,8 @@ import org.ourgrid.virt.strategies.HypervisorUtils;
 
 public class QEmuStrategy implements HypervisorStrategy {
 
+	private static final Logger LOGGER = Logger.getLogger(QEmuStrategy.class);
+	
 	private static final String RESTORE_SNAPSHOT = "RESTORE_SNAPSHOT";
 	private static final String PROCESS = "QEMU_LOCATION";
 	private static final String DESTROYED = "DESTROYED";
@@ -397,13 +400,15 @@ public class QEmuStrategy implements HypervisorStrategy {
 	
 	private ProcessBuilder getProcessBuilder(String cmd) throws Exception {
 
+		LOGGER.debug("Command line: " + cmd);
+		
 		ProcessBuilder processBuilder = null;
 
 		if (HypervisorUtils.isWindowsHost()) {
 			processBuilder = new ProcessBuilder("cmd", "/C " + cmd);
 		} else if (HypervisorUtils.isLinuxHost()) {
-			processBuilder =  new ProcessBuilder(cmd);
-
+			List<String> matchList = HypervisorUtils.splitCmdLine("./" + cmd); 
+			processBuilder =  new ProcessBuilder(matchList.toArray(new String[]{}));
 		} else {
 			throw new Exception("Host OS not supported");
 		}
