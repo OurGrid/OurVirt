@@ -64,6 +64,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		}
 			
 		strBuilder.append(" -m ").append(memory);
+		strBuilder.append(" -nodefconfig");
 		Integer qmpPort = randomPort();
 		strBuilder.append(" -qmp tcp:127.0.0.1:").append(qmpPort).append(",server,nowait,nodelay");
 		virtualMachine.setProperty(QMP_PORT, qmpPort);
@@ -101,6 +102,21 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	private void checkOSStarted(VirtualMachine virtualMachine)
 			throws Exception {
+		
+		Process process = virtualMachine.getProperty(PROCESS);
+		try {
+			process.exitValue();
+			
+			List<String> stderr = IOUtils.readLines(process.getInputStream());
+			List<String> stdout = IOUtils.readLines(process.getErrorStream());
+			
+			throw new Exception("Virtual Machine was forcibly terminated. " +
+					"Stdout [" + stdout + "] stderr [" + stderr + "]");
+			
+		} catch (IllegalThreadStateException e) {
+			// Should proceed, process hasn't terminated yet
+		}
+		
 		String startTimeout = virtualMachine.getProperty(VirtualMachineConstants.START_TIMEOUT);
 		boolean checkTimeout = startTimeout != null;
 		
@@ -297,7 +313,15 @@ public class QEmuStrategy implements HypervisorStrategy {
 			throws Exception {
 		
 		SSHClient sshClient = createAuthSSHClient(virtualMachine);
-		sshClient.startSession().exec("mkdir -p " + guestPath);
+		
+		LOGGER.debug("Creating shared folder on guest.");
+		
+		Session session = sshClient.startSession();
+		session.exec("mkdir -p " + guestPath).join();
+		session.close();
+		
+		LOGGER.debug("Syncing shared folder.");
+		
 		syncSharedFolderIn(hostPath, guestPath, sshClient);
 		sshClient.close();
 		
