@@ -312,15 +312,13 @@ public class QEmuStrategy implements HypervisorStrategy {
 			String shareName, String hostPath, String guestPath)
 			throws Exception {
 		
-		SSHClient sshClient = createAuthSSHClient(virtualMachine);
+		new File(hostPath).mkdirs();
 		
-		LOGGER.debug("Creating shared folder on guest.");
+		SSHClient sshClient = createAuthSSHClient(virtualMachine);
 		
 		Session session = sshClient.startSession();
 		session.exec("mkdir -p " + guestPath).join();
 		session.close();
-		
-		LOGGER.debug("Syncing shared folder.");
 		
 		syncSharedFolderIn(hostPath, guestPath, sshClient);
 		sshClient.close();
