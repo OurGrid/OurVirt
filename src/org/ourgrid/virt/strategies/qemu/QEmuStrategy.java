@@ -42,6 +42,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final String CURRENT_SNAPSHOT = "current";
 	
 	private static final int START_RECHECK_DELAY = 10;
+	private static final int DEF_CONNECTION_TIMEOUT = 120;
 	private static final String SHARED_FOLDERS = "SHARED_FOLDERS";
 
 	private String qemuLocation = System.getProperty("qemu.home");
@@ -370,6 +371,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		SSHClient sshClient = createSSHClient(virtualMachine);
 		String user = virtualMachine.getProperty(VirtualMachineConstants.GUEST_USER);
 	    String password = virtualMachine.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
+	    sshClient.getConnection().setTimeout(DEF_CONNECTION_TIMEOUT);
 		sshClient.authPassword(user, password);
 		return sshClient;
 	}
