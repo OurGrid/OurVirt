@@ -36,7 +36,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	private static final String RESTORE_SNAPSHOT = "RESTORE_SNAPSHOT";
 	private static final String PROCESS = "QEMU_LOCATION";
-	private static final String DESTROYED = "DESTROYED";
+	private static final String POWERED_OFF = "POWERED_OFF";
 	private static final String QMP_PORT = "QMP_PORT";
 	private static final String CIFS_SERVER = "CIFS_SERVER";
 	private static final String CIFS_DEVICE = "10.0.2.100";
@@ -101,6 +101,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 		ProcessBuilder builder = getSystemProcessBuilder(strBuilder.toString());
 		virtualMachine.setProperty(PROCESS, builder.start());
+		virtualMachine.setProperty(POWERED_OFF, null);
 
 		Runnable runnable = new Runnable() {
 			public void run() {
@@ -251,7 +252,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		Process p = virtualMachine.getProperty(PROCESS);
 		p.destroy();
 
-		virtualMachine.setProperty(DESTROYED, true);
+		virtualMachine.setProperty(POWERED_OFF, true);
 	}
 
 	private void stopCIFS(VirtualMachine virtualMachine) {
@@ -268,7 +269,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 		if (p == null) {
 			return VirtualMachineStatus.NOT_CREATED;
 		}
-		if (virtualMachine.getProperty(DESTROYED) != null) {
+		Boolean poweredOff = virtualMachine.getProperty(POWERED_OFF);
+		if (poweredOff != null && poweredOff) {
 			return VirtualMachineStatus.POWERED_OFF;
 		}
 		return VirtualMachineStatus.RUNNING;
