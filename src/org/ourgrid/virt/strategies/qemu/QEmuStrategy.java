@@ -192,7 +192,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 			} catch (Exception e) {
 				if (checkTimeout && remainingTries-- == 0) {
 					ex = new Exception(
-							"Virtual Machine OS was not started. Please check you credentials.");
+							"Virtual Machine OS was not started. Please check you credentials.", e);
 				}
 			}
 
