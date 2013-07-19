@@ -10,5 +10,8 @@
 	<classpathentry kind="lib" path="lib/log4j-1.2.16.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-log4j12-1.4.2.jar"/>
 	<classpathentry kind="lib" path="lib/slf4j-api-1.4.2.jar"/>
+	<classpathentry kind="lib" path="lib/bcprov-jdk15on-1.47.jar"/>
+	<classpathentry kind="lib" path="lib/bcpkix-jdk15on-1.47.jar"/>
+	<classpathentry kind="lib" path="lib/alfresco-jlan.jar"/>
 	<classpathentry kind="output" path="target"/>
 </classpath>
