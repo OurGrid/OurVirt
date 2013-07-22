@@ -83,6 +83,17 @@ public class OurVirt {
 	public void stop(HypervisorType hypervisor, String vmName) throws Exception {
 		factory.get(hypervisor).stop(getRegisteredVM(vmName));
 	}
+	
+	/**
+	 * Reboots the registered virtual machine.
+	 * @param hypervisor the hypervisor used to manage the virtual machine
+	 * @param vmName the name identifier of the virtual machine
+	 * @throws Exception if the hypervisor does not support this method
+	 * or if some problem occurs while trying to reboot the virtual machine
+	 */
+	public void reboot(HypervisorType hypervisor, String vmName) throws Exception {
+		factory.get(hypervisor).reboot(getRegisteredVM(vmName));
+	}
 
 	/**
 	 * Retrieves the status of the registered virtual machine.

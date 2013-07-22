@@ -684,4 +684,11 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		
 	}
 	
+	@Override
+	public void reboot(VirtualMachine virtualMachine) throws Exception {
+		// TODO call actual hypervisor reboot method, if existent
+		stop(virtualMachine);
+		start(virtualMachine);
+	}
+	
 }

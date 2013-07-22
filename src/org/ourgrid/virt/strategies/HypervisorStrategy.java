@@ -30,6 +30,15 @@ public interface HypervisorStrategy {
 	 */
 	public void stop(VirtualMachine virtualMachine) throws Exception;
 	
+	
+	/**
+	 * Reboots the specified virtual machine, if it is already started.
+	 * @param virtualMachine the related virtual machine
+	 * @throws Exception if the hypervisor does not support this method
+	 * or if some problem occurs while trying to reboot the related virtual machine
+	 */
+	public void reboot(VirtualMachine virtualMachine) throws Exception;
+	
 	/**
 	 * Retrieves the status of the specified virtual machine.
 	 * @param virtualMachine the related virtual machine 
