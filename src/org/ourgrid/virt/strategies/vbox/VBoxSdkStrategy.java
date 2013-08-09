@@ -226,7 +226,8 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	private void checkOSStarted(VirtualMachine virtualMachine)
 			throws Exception {
 		
-		String startTimeout = virtualMachine.getProperty(VirtualMachineConstants.START_TIMEOUT);
+		String startTimeout = virtualMachine.getProperty(
+				VirtualMachineConstants.START_TIMEOUT);
 		boolean checkTimeout = startTimeout != null;
 		
 		int remainingTries = 0;
@@ -249,7 +250,8 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 				
 			} catch (Exception e) {
 				if (checkTimeout && remainingTries-- == 0) {
-					ex = new Exception("Virtual Machine OS was not started. Please check you credentials.");
+					ex = new Exception("Virtual Machine OS was not [re]started. " +
+							"Please check you credentials.");
 				}
 			}
 
@@ -467,7 +469,8 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		try {
 			IConsole console = session.getConsole();
 			if (machine.getCurrentSnapshot() != null) {
-				IProgress deleteSnapshotProg = console.deleteSnapshot(machine.getCurrentSnapshot().getId());
+				IProgress deleteSnapshotProg = 
+					console.deleteSnapshot(machine.getCurrentSnapshot().getId());
 				deleteSnapshotProg.waitForCompletion(-1);
 				if (deleteSnapshotProg.getResultCode() != 0) {
 					throw new Exception("Cannot delete snapshot from VM. " + 
@@ -681,14 +684,31 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	@Override
 	public void prepareEnvironment(Map<String, String> props) throws Exception {
 		// TODO Auto-generated method stub
-		
 	}
 	
 	@Override
 	public void reboot(VirtualMachine virtualMachine) throws Exception {
-		// TODO call actual hypervisor reboot method, if existent
-		stop(virtualMachine);
-		start(virtualMachine);
+		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
+			return;
+		}
+
+		rebootVirtualMachine(virtualMachine);
+		checkOSStarted(virtualMachine);
+	}
+	
+	private void rebootVirtualMachine(VirtualMachine virtualMachine) 
+			throws Exception {
+		ISession session = getSession(virtualMachine);
+		IMachine machine = this.vbox.findMachine(virtualMachine.getName());
+		machine.lockMachine(session, LockType.Shared);
+		try {
+			IConsole console = session.getConsole();
+			console.reset();
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			unlock(session);
+		}
 	}
 	
 }

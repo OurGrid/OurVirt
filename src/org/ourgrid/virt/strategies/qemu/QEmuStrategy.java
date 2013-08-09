@@ -239,15 +239,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	public void stop(VirtualMachine virtualMachine) throws Exception {
 		stopCIFS(virtualMachine);
 		
-		Socket s = new Socket("127.0.0.1",
-				(Integer) virtualMachine.getProperty(QMP_PORT));
-		PrintStream ps = new PrintStream(s.getOutputStream());
-		ps.println("{\"execute\":\"qmp_capabilities\"}");
-		ps.flush();
-		Thread.sleep(QMP_CAPABILITY_WAIT);
-		ps.println("{\"execute\":\"quit\"}");
-		ps.flush();
-		s.close();
+		runQMPCommand(virtualMachine, "quit");
 
 		Process p = virtualMachine.getProperty(PROCESS);
 		p.destroy();
@@ -529,8 +521,20 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	@Override
 	public void reboot(VirtualMachine virtualMachine) throws Exception {
-		// TODO call actual hypervisor reboot method, if existent
-		stop(virtualMachine);
-		start(virtualMachine);
+		runQMPCommand(virtualMachine, "system_reset");
+		checkOSStarted(virtualMachine);
+	}
+	
+	private void runQMPCommand(VirtualMachine virtualMachine,
+			String command) throws Exception {
+		Socket s = new Socket("127.0.0.1",
+				(Integer) virtualMachine.getProperty(QMP_PORT));
+		PrintStream ps = new PrintStream(s.getOutputStream());
+		ps.println("{\"execute\":\"qmp_capabilities\"}");
+		ps.flush();
+		Thread.sleep(QMP_CAPABILITY_WAIT);
+		ps.println("{\"execute\":\"" + command + "\"}");
+		ps.flush();
+		s.close();
 	}
 }

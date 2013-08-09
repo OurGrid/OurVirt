@@ -514,9 +514,15 @@ public class VServerStrategy implements HypervisorStrategy {
 	
 	@Override
 	public void reboot(VirtualMachine virtualMachine) throws Exception {
-		// TODO call actual hypervisor reboot method, if existent
-		stop(virtualMachine);
-		start(virtualMachine);
+		if (status(virtualMachine) == VirtualMachineStatus.POWERED_OFF) {
+			return;
+		}
+
+		ProcessBuilder stopProcessBuilder = getVMProcessBuilder(virtualMachine,
+				"restart");
+		HypervisorUtils.runAndCheckProcess(stopProcessBuilder);
+		
+		checkOSStarted(virtualMachine);
 	}
 
 }
