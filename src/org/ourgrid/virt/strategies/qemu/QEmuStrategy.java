@@ -1,9 +1,11 @@
 package org.ourgrid.virt.strategies.qemu;
 
 import java.io.File;
+import java.io.FilePermission;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.Socket;
+import java.security.AccessController;
 import java.security.PublicKey;
 import java.util.HashMap;
 import java.util.List;
@@ -163,6 +165,14 @@ public class QEmuStrategy implements HypervisorStrategy {
 		if (!new File("/dev/kvm").exists()) {
 			return false;
 		}
+		
+		try {
+			FilePermission fp = new FilePermission("/dev/kvm", "read,write");
+			AccessController.checkPermission(fp);
+		} catch (Exception e) {
+			return false;
+		}
+		
 		try {
 			return new ProcessBuilder("kvm-ok").start().waitFor() == 0;
 		} catch (Exception e) {
