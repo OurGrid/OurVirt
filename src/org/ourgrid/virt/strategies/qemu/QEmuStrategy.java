@@ -1,6 +1,7 @@
 package org.ourgrid.virt.strategies.qemu;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.PrintStream;
 import java.net.Socket;
 import java.security.PublicKey;
@@ -8,6 +9,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.connection.channel.direct.Session;
@@ -16,6 +18,8 @@ import net.schmizz.sshj.transport.TransportException;
 import net.schmizz.sshj.transport.verification.HostKeyVerifier;
 import net.schmizz.sshj.userauth.UserAuthException;
 
+import org.alfresco.jlan.server.NetworkServer;
+import org.alfresco.jlan.server.ServerListener;
 import org.alfresco.jlan.smb.server.SMBServer;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
@@ -99,7 +103,44 @@ public class QEmuStrategy implements HypervisorStrategy {
 			strBuilder.append(" -enable-kvm");
 		}
 
-		ProcessBuilder builder = getSystemProcessBuilder(strBuilder.toString());
+		final ProcessBuilder builder = getSystemProcessBuilder(strBuilder.toString());
+		
+		final LinkedBlockingQueue<Object> lbq = new LinkedBlockingQueue<Object>();
+		
+		SMBServer cifsServer = virtualMachine.getProperty(CIFS_SERVER);
+		if (cifsServer != null) {
+			cifsServer.addServerListener(new ServerListener() {
+				@Override
+				public void serverStatusEvent(NetworkServer server, int event) {
+					if (event == ServerListener.ServerActive) {
+						try {
+							startQEmuProcess(virtualMachine, builder);
+							lbq.add(Void.class);
+						} catch (IOException e) {
+							lbq.add(e);
+						}
+					} else if (event == ServerListener.ServerError) {
+						lbq.add(server.getException());
+					}
+				}
+			});
+			
+			cifsServer.startServer();
+		} else {
+			startQEmuProcess(virtualMachine, builder);
+			lbq.add(Void.class);
+		}
+		
+		Object flag = lbq.take();
+		if (flag instanceof Exception) {
+			throw (Exception)flag;
+		}
+		
+		checkOSStarted(virtualMachine);
+	}
+
+	private void startQEmuProcess(final VirtualMachine virtualMachine,
+			ProcessBuilder builder) throws IOException {
 		virtualMachine.setProperty(PROCESS, builder.start());
 		virtualMachine.setProperty(POWERED_OFF, null);
 
@@ -113,8 +154,6 @@ public class QEmuStrategy implements HypervisorStrategy {
 			}
 		};
 		Runtime.getRuntime().addShutdownHook(new Thread(runnable));
-
-		checkOSStarted(virtualMachine);
 	}
 
 	private boolean checkKVM() {
@@ -144,7 +183,6 @@ public class QEmuStrategy implements HypervisorStrategy {
 				.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
 		SMBServer server = EmbeddedCifsServer.create(sharedFolders.values(),
 				user, password, smbPort);
-		server.startServer();
 		virtualMachine.setProperty(CIFS_SERVER, server);
 	}
 
@@ -155,21 +193,6 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	private void checkOSStarted(VirtualMachine virtualMachine) throws Exception {
 
-		Process process = virtualMachine.getProperty(PROCESS);
-		try {
-			process.exitValue();
-
-			List<String> stderr = IOUtils.readLines(process.getInputStream());
-			List<String> stdout = IOUtils.readLines(process.getErrorStream());
-
-			stopCIFS(virtualMachine);
-
-			throw new Exception("Virtual Machine was forcibly terminated. "
-					+ "Stdout [" + stdout + "] stderr [" + stderr + "]");
-
-		} catch (IllegalThreadStateException e) {
-			// Should proceed, process hasn't terminated yet
-		}
 
 		String startTimeout = virtualMachine
 				.getProperty(VirtualMachineConstants.START_TIMEOUT);
@@ -183,6 +206,14 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 		while (true) {
 			Exception ex = null;
+			
+			try {
+				verifyProcessRunning(virtualMachine);
+			} catch (Exception e) {
+				stopCIFS(virtualMachine);
+				throw e;
+			}
+			
 			try {
 				if (HypervisorUtils.isLinuxGuest(virtualMachine)) {
 					createSSHClient(virtualMachine).disconnect();
@@ -202,6 +233,23 @@ public class QEmuStrategy implements HypervisorStrategy {
 				throw ex;
 			}
 			Thread.sleep(1000 * START_RECHECK_DELAY);
+		}
+	}
+
+	private void verifyProcessRunning(VirtualMachine virtualMachine)
+			throws IOException, Exception {
+		Process process = virtualMachine.getProperty(PROCESS);
+		try {
+			process.exitValue();
+
+			List<String> stderr = IOUtils.readLines(process.getInputStream());
+			List<String> stdout = IOUtils.readLines(process.getErrorStream());
+
+			throw new Exception("Virtual Machine was forcibly terminated. "
+					+ "Stdout [" + stdout + "] stderr [" + stderr + "]");
+
+		} catch (IllegalThreadStateException e) {
+			// Should proceed, process hasn't terminated yet
 		}
 	}
 
