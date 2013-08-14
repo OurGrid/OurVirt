@@ -36,7 +36,7 @@ import org.ourgrid.virt.strategies.HypervisorUtils;
 
 public class QEmuStrategy implements HypervisorStrategy {
 
-	private static final int QMP_CAPABILITY_WAIT = 2000;
+	private static final int QMP_CAPABILITY_WAIT = 5000;
 
 	private static final Logger LOGGER = Logger.getLogger(QEmuStrategy.class);
 
@@ -45,6 +45,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final String POWERED_OFF = "POWERED_OFF";
 	private static final String QMP_PORT = "QMP_PORT";
 	private static final String CIFS_SERVER = "CIFS_SERVER";
+	private static final String HDA_FILE = "HDA_FILE";
+	
 	private static final String CIFS_DEVICE = "10.0.2.100";
 	private static final String CIFS_PORT_GUEST = "9999";
 	private static final String CURRENT_SNAPSHOT = "current";
@@ -97,14 +99,22 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 		if (snapshot != null && new File(snapshotLocation).exists()) {
 			strBuilder.append(" -hda \"").append(snapshotLocation).append("\"");
+			virtualMachine.setProperty(HDA_FILE, snapshotLocation);
 		} else {
 			strBuilder.append(" -hda \"").append(hda).append("\"");
+			virtualMachine.setProperty(HDA_FILE, hda);
 		}
 
 		if (checkKVM()) {
 			strBuilder.append(" -enable-kvm");
 		}
 
+		try {
+			kill(virtualMachine);
+		} catch (Exception e) {
+			// Best effort
+		}
+		
 		final ProcessBuilder builder = getSystemProcessBuilder(strBuilder.toString());
 		
 		final LinkedBlockingQueue<Object> lbq = new LinkedBlockingQueue<Object>();
@@ -301,8 +311,31 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 		Process p = virtualMachine.getProperty(PROCESS);
 		p.destroy();
-
+		
+		try {
+			kill(virtualMachine);
+		} catch (Exception e) {
+			// Best effort
+		}
+		
 		virtualMachine.setProperty(POWERED_OFF, true);
+	}
+
+	private void kill(VirtualMachine virtualMachine) throws Exception {
+		ProcessBuilder psProcessBuilder = new ProcessBuilder(
+				"/bin/bash", "-c", "ps aux | grep qemu-system-i386 | " +
+				"grep " + virtualMachine.getProperty(HDA_FILE));
+		Process psProcess = psProcessBuilder.start();
+		int psExitValue = psProcess.waitFor();
+		if (psExitValue != 0) {
+			return;
+		}
+		
+		String psStdOut = IOUtils.toString(psProcess.getInputStream());
+		for (String eachProcess : psStdOut.split("\n")) {
+			String pid = eachProcess.split("\\s+")[1];
+			new ProcessBuilder("/bin/kill", pid).start().waitFor();
+		}
 	}
 
 	private void stopCIFS(VirtualMachine virtualMachine) {
@@ -590,7 +623,9 @@ public class QEmuStrategy implements HypervisorStrategy {
 		PrintStream ps = new PrintStream(s.getOutputStream());
 		ps.println("{\"execute\":\"qmp_capabilities\"}");
 		ps.flush();
+		
 		Thread.sleep(QMP_CAPABILITY_WAIT);
+		
 		ps.println("{\"execute\":\"" + command + "\"}");
 		ps.flush();
 		s.close();
