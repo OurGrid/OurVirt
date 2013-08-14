@@ -41,11 +41,12 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final Logger LOGGER = Logger.getLogger(QEmuStrategy.class);
 
 	private static final String RESTORE_SNAPSHOT = "RESTORE_SNAPSHOT";
-	private static final String PROCESS = "QEMU_LOCATION";
+	private static final String PROCESS = "PROCESS";
 	private static final String POWERED_OFF = "POWERED_OFF";
 	private static final String QMP_PORT = "QMP_PORT";
 	private static final String CIFS_SERVER = "CIFS_SERVER";
 	private static final String HDA_FILE = "HDA_FILE";
+	private static final String SHARED_FOLDERS = "SHARED_FOLDERS";
 	
 	private static final String CIFS_DEVICE = "10.0.2.100";
 	private static final String CIFS_PORT_GUEST = "9999";
@@ -53,7 +54,6 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	private static final int START_RECHECK_DELAY = 10;
 	private static final int DEF_CONNECTION_TIMEOUT = 120;
-	private static final String SHARED_FOLDERS = "SHARED_FOLDERS";
 
 	private String qemuLocation = System.getProperty("qemu.home");
 

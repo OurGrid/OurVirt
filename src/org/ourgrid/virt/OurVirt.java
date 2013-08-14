@@ -33,6 +33,9 @@ public class OurVirt {
 	 * @see OurVirt#create(HypervisorType, String)
 	 */
 	public void register(String vmName, Map<String, ?> configuration) {
+		if (vMCache.containsKey(vmName)) {
+			return;
+		}
 		VirtualMachine vm = new VirtualMachine(vmName);
 		vm.setConfiguration(configuration);
 		vMCache.put(vmName, vm);
@@ -162,6 +165,7 @@ public class OurVirt {
 	 */
 	public void destroy(HypervisorType hypervisor, String vmName) throws Exception {
 		factory.get(hypervisor).destroy(getRegisteredVM(vmName));
+		vMCache.remove(vmName);
 	}
 	
 	/**
