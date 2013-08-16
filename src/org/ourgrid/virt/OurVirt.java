@@ -294,6 +294,16 @@ public class OurVirt {
 		factory.get(hypervisor).prepareEnvironment(props);
 	}
 	
+	/**
+	 * @param virtualMachine the related virtual machine
+	 * @return the CPUTime for the specified virtual machine process.
+	 * @throws Exception if the hypervisor does not support this method 
+	 * or if some problem occurs while trying to get the CPUTime for the specified virtual machine process.
+	 */
+	public long getCPUTime(HypervisorType hypervisor, String vmName) throws Exception {
+		return factory.get(hypervisor).getCPUTime(getRegisteredVM(vmName));
+	}
+	
 	public void clone(HypervisorType hypervisor, String sourceDevice, String destDevice) throws Exception {
 		factory.get(hypervisor).clone(sourceDevice, destDevice);
 	}

@@ -36,6 +36,8 @@ import org.ourgrid.virt.strategies.HypervisorUtils;
 
 public class QEmuStrategy implements HypervisorStrategy {
 
+	private static final int VM_PID_INDEX = 1;
+
 	private static final int QMP_CAPABILITY_WAIT = 5000;
 
 	private static final Logger LOGGER = Logger.getLogger(QEmuStrategy.class);
@@ -54,6 +56,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	private static final int START_RECHECK_DELAY = 10;
 	private static final int DEF_CONNECTION_TIMEOUT = 120;
+
+	private static final int CPU_TIME_INDEX = 10;
 
 	private String qemuLocation = System.getProperty("qemu.home");
 
@@ -320,22 +324,29 @@ public class QEmuStrategy implements HypervisorStrategy {
 		
 		virtualMachine.setProperty(POWERED_OFF, true);
 	}
-
-	private void kill(VirtualMachine virtualMachine) throws Exception {
+	
+	private String[] getVMProcessStats(VirtualMachine virtualMachine) throws Exception {
+		String[] vmProcess;
+		
 		ProcessBuilder psProcessBuilder = new ProcessBuilder(
 				"/bin/bash", "-c", "ps aux | grep qemu-system-i386 | " +
 				"grep " + virtualMachine.getProperty(HDA_FILE));
 		Process psProcess = psProcessBuilder.start();
 		int psExitValue = psProcess.waitFor();
 		if (psExitValue != 0) {
-			return;
+			return null;
 		}
 		
-		String psStdOut = IOUtils.toString(psProcess.getInputStream());
-		for (String eachProcess : psStdOut.split("\n")) {
-			String pid = eachProcess.split("\\s+")[1];
-			new ProcessBuilder("/bin/kill", pid).start().waitFor();
-		}
+		String processStr = IOUtils.toString(psProcess.getInputStream());
+		vmProcess = processStr.split("\\s+");
+		
+		return vmProcess;
+	}
+	
+
+	private void kill(VirtualMachine virtualMachine) throws Exception {
+		String vmProcPid = getVMProcessStats(virtualMachine)[VM_PID_INDEX];
+		new ProcessBuilder("/bin/kill", vmProcPid).start().waitFor();
 	}
 
 	private void stopCIFS(VirtualMachine virtualMachine) {
@@ -629,5 +640,47 @@ public class QEmuStrategy implements HypervisorStrategy {
 		ps.println("{\"execute\":\"" + command + "\"}");
 		ps.flush();
 		s.close();
+	}
+
+	@Override
+	public long getCPUTime(VirtualMachine virtualMachine) throws Exception {
+		String[] topStats;
+		long cpuTime = 0;
+		
+		String vmProcPid = getVMProcessStats(virtualMachine)[1];
+		ProcessBuilder psProcessBuilder = new ProcessBuilder(
+				"/bin/top", "-n", "1", "-p", vmProcPid, " | grep ", vmProcPid);
+		
+		Process psProcess = psProcessBuilder.start();
+		int psExitValue = psProcess.waitFor();
+		if (psExitValue != 0) {
+			return -1;
+		}
+		
+		String processStr = IOUtils.toString(psProcess.getInputStream());
+		topStats = processStr.split("\\s+");
+		
+		if (topStats.length < CPU_TIME_INDEX + 1) {
+			return -1;
+		}
+		
+//		CPUTime Pattern: [DD-]hh:mm:ss
+		String cpuTimeStr = topStats[CPU_TIME_INDEX];
+		String[] cpuTimeArray = cpuTimeStr.split("-");
+		if (cpuTimeArray.length > 1) {
+			cpuTime += Long.parseLong(cpuTimeArray[0])*24*60*60;
+			cpuTimeStr = cpuTimeArray[1];
+		}
+		cpuTimeArray = cpuTimeStr.split(":");
+		
+		cpuTime += Long.parseLong(cpuTimeArray[0])*60*60;
+		cpuTime += Long.parseLong(cpuTimeArray[1])*60;
+		cpuTime += Long.parseLong(cpuTimeArray[2]);
+		
+		
+		// Changing unit from s to ms
+		cpuTime = cpuTime*1000;
+		
+		return cpuTime;
 	}
 }

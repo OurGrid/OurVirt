@@ -150,6 +150,14 @@ public interface HypervisorStrategy {
 	 * @return <i><b>true</b></i> if the hypervisor is supported, <i><b>false</b></i> otherwise. 
 	 */
 	public boolean isSupported();
+	
+	/**
+	 * @param virtualMachine the related virtual machine
+	 * @return the CPUTime for the specified virtual machine process.
+	 * @throws Exception if the hypervisor does not support this method 
+	 * or if some problem occurs while trying to get the CPUTime for the specified virtual machine process.
+	 */
+	public long getCPUTime(VirtualMachine virtualMachine) throws Exception;
 
 	/**
 	 * Mounts the specified shared folder in the related virtual machine .
