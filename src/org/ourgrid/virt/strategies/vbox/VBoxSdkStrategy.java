@@ -710,5 +710,11 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 			unlock(session);
 		}
 	}
+
+	@Override
+	public long getCPUTime(VirtualMachine virtualMachine) throws Exception {
+		// TODO Auto-generated method stub
+		return 0;
+	}
 	
 }

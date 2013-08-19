@@ -3,6 +3,7 @@ package org.ourgrid.virt.strategies.qemu;
 import java.io.File;
 import java.io.FilePermission;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.net.Socket;
 import java.security.AccessController;
@@ -325,7 +326,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		virtualMachine.setProperty(POWERED_OFF, true);
 	}
 	
-	private String[] getVMProcessStats(VirtualMachine virtualMachine) throws Exception {
+	private String getVMProcessPid(VirtualMachine virtualMachine) throws Exception {
 		String[] vmProcess;
 		
 		ProcessBuilder psProcessBuilder = new ProcessBuilder(
@@ -340,12 +341,12 @@ public class QEmuStrategy implements HypervisorStrategy {
 		String processStr = IOUtils.toString(psProcess.getInputStream());
 		vmProcess = processStr.split("\\s+");
 		
-		return vmProcess;
+		return vmProcess[VM_PID_INDEX];
 	}
 	
 
 	private void kill(VirtualMachine virtualMachine) throws Exception {
-		String vmProcPid = getVMProcessStats(virtualMachine)[VM_PID_INDEX];
+		String vmProcPid = getVMProcessPid(virtualMachine);
 		new ProcessBuilder("/bin/kill", vmProcPid).start().waitFor();
 	}
 
@@ -647,17 +648,19 @@ public class QEmuStrategy implements HypervisorStrategy {
 		String[] topStats;
 		long cpuTime = 0;
 		
-		String vmProcPid = getVMProcessStats(virtualMachine)[1];
+		String vmProcPid = getVMProcessPid(virtualMachine);
 		ProcessBuilder psProcessBuilder = new ProcessBuilder(
-				"/bin/top", "-n", "1", "-p", vmProcPid, " | grep ", vmProcPid);
+				"/bin/bash", "-c", " top -n 1 -p ", vmProcPid);
 		
 		Process psProcess = psProcessBuilder.start();
+		Thread.sleep(5000);
 		int psExitValue = psProcess.waitFor();
-		if (psExitValue != 0) {
-			return -1;
-		}
+//		if (psExitValue != 0) {
+//			return -1;
+//		}
 		
-		String processStr = IOUtils.toString(psProcess.getInputStream());
+		InputStream psIn = psProcess.getInputStream();
+		String processStr = IOUtils.toString(psIn);
 		topStats = processStr.split("\\s+");
 		
 		if (topStats.length < CPU_TIME_INDEX + 1) {

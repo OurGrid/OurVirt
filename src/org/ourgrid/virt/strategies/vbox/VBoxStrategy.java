@@ -688,4 +688,10 @@ public class VBoxStrategy implements HypervisorStrategy {
 		checkOSStarted(virtualMachine);
 	}
 
+	@Override
+	public long getCPUTime(VirtualMachine virtualMachine) throws Exception {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
 }
