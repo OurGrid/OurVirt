@@ -61,6 +61,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final int CPU_TIME_INDEX = 10;
 
 	private String qemuLocation = System.getProperty("qemu.home");
+	private String vmProcessPid;
 
 	@Override
 	public void start(final VirtualMachine virtualMachine) throws Exception {
@@ -152,6 +153,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 		if (flag instanceof Exception) {
 			throw (Exception)flag;
 		}
+		
+		storeVMProcessPid(virtualMachine);
 		
 		checkOSStarted(virtualMachine);
 	}
@@ -326,7 +329,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		virtualMachine.setProperty(POWERED_OFF, true);
 	}
 	
-	private String getVMProcessPid(VirtualMachine virtualMachine) throws Exception {
+	private void storeVMProcessPid(VirtualMachine virtualMachine) throws Exception {
 		String[] vmProcess;
 		
 		ProcessBuilder psProcessBuilder = new ProcessBuilder(
@@ -335,19 +338,18 @@ public class QEmuStrategy implements HypervisorStrategy {
 		Process psProcess = psProcessBuilder.start();
 		int psExitValue = psProcess.waitFor();
 		if (psExitValue != 0) {
-			return null;
+			throw new Exception("Could not retrieve VM process Pid.");
 		}
 		
 		String processStr = IOUtils.toString(psProcess.getInputStream());
 		vmProcess = processStr.split("\\s+");
 		
-		return vmProcess[VM_PID_INDEX];
+		vmProcessPid = vmProcess[VM_PID_INDEX];
 	}
 	
 
 	private void kill(VirtualMachine virtualMachine) throws Exception {
-		String vmProcPid = getVMProcessPid(virtualMachine);
-		new ProcessBuilder("/bin/kill", vmProcPid).start().waitFor();
+		new ProcessBuilder("/bin/kill", vmProcessPid).start().waitFor();
 	}
 
 	private void stopCIFS(VirtualMachine virtualMachine) {
@@ -648,20 +650,24 @@ public class QEmuStrategy implements HypervisorStrategy {
 		String[] topStats;
 		long cpuTime = 0;
 		
-		String vmProcPid = getVMProcessPid(virtualMachine);
-		ProcessBuilder psProcessBuilder = new ProcessBuilder(
-				"/bin/bash", "-c", " top -n 1 -p ", vmProcPid);
+		StringBuilder topCmd = new StringBuilder();
+		topCmd.append("top -b -n 1 -p ");
+		topCmd.append(vmProcessPid);
+		topCmd.append(" | grep ");
+		topCmd.append(vmProcessPid);
+		
+		ProcessBuilder psProcessBuilder = 
+				new ProcessBuilder("/bin/bash", "-c", topCmd.toString());
 		
 		Process psProcess = psProcessBuilder.start();
-		Thread.sleep(5000);
-		int psExitValue = psProcess.waitFor();
-//		if (psExitValue != 0) {
-//			return -1;
-//		}
-		
 		InputStream psIn = psProcess.getInputStream();
+		int psExitValue = psProcess.waitFor();
+		if (psExitValue != 0) {
+			return -1;
+		}
+		
 		String processStr = IOUtils.toString(psIn);
-		topStats = processStr.split("\\s+");
+		topStats = processStr.trim().split("\\s+");
 		
 		if (topStats.length < CPU_TIME_INDEX + 1) {
 			return -1;
@@ -674,15 +680,14 @@ public class QEmuStrategy implements HypervisorStrategy {
 			cpuTime += Long.parseLong(cpuTimeArray[0])*24*60*60;
 			cpuTimeStr = cpuTimeArray[1];
 		}
-		cpuTimeArray = cpuTimeStr.split(":");
+		long minutes = Long.parseLong(cpuTimeStr.split(":")[0]);
+		long seconds = Long.parseLong(cpuTimeStr.split(":")[1].split("\\.")[0]);
+		long hundredths = Long.parseLong(cpuTimeStr.split(":")[1].split("\\.")[1]);
 		
-		cpuTime += Long.parseLong(cpuTimeArray[0])*60*60;
-		cpuTime += Long.parseLong(cpuTimeArray[1])*60;
-		cpuTime += Long.parseLong(cpuTimeArray[2]);
-		
-		
-		// Changing unit from s to ms
-		cpuTime = cpuTime*1000;
+		// Chaning unit to ms
+		cpuTime += minutes*60*1000;
+		cpuTime += seconds*1000;
+		cpuTime += hundredths*10; 
 		
 		return cpuTime;
 	}
