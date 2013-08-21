@@ -1,7 +1,7 @@
 package org.ourgrid.virt.strategies.qemu;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FilePermission;
 import java.io.IOException;
 import java.io.InputStream;
@@ -63,7 +63,6 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final int CPU_TIME_INDEX = 10;
 
 	private String qemuLocation = System.getProperty("qemu.home");
-	private String vmProcessPid;
 
 	@Override
 	public void start(final VirtualMachine virtualMachine) throws Exception {
@@ -101,6 +100,9 @@ public class QEmuStrategy implements HypervisorStrategy {
 				.append(",server,nowait,nodelay");
 		virtualMachine.setProperty(QMP_PORT, qmpPort);
 
+		File pidFile = getPidFile(virtualMachine);
+		strBuilder.append(" -pidfile \"").append(pidFile.getAbsolutePath()).append("\"");
+		
 		String snapshot = virtualMachine.getProperty(RESTORE_SNAPSHOT);
 		String snapshotLocation = getSnapshotLocation(virtualMachine,
 				CURRENT_SNAPSHOT);
@@ -122,8 +124,6 @@ public class QEmuStrategy implements HypervisorStrategy {
 		} catch (Exception e) {
 			// Best effort
 		}
-		
-		strBuilder.append(" & echo $!");
 		
 		final ProcessBuilder builder = getSystemProcessBuilder(strBuilder.toString());
 		
@@ -277,26 +277,17 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private void verifyProcessRunning(VirtualMachine virtualMachine)
 			throws Exception {
 		Process process = virtualMachine.getProperty(PROCESS);
-		
-		if (vmProcessPid == null) {
-			storeVMProcessPid(process);
-		}
-		
-		String psCmd = "ps h -p " + vmProcessPid;
-		
-		ProcessBuilder pBuilder = getProcessBuilder(psCmd);
-		
-		Process ps = pBuilder.start();
-		
-		ps.waitFor();
-		String processStr = IOUtils.toString(ps.getInputStream());
-		if (processStr.length() < 1) {
-			//The process with given PID does not exist
+		try {
+			process.exitValue();
+
 			List<String> stderr = IOUtils.readLines(process.getInputStream());
 			List<String> stdout = IOUtils.readLines(process.getErrorStream());
-			
+
 			throw new Exception("Virtual Machine was forcibly terminated. "
 					+ "Stdout [" + stdout + "] stderr [" + stderr + "]");
+
+		} catch (IllegalThreadStateException e) {
+			// Should proceed, process hasn't terminated yet
 		}
 	}
 
@@ -348,19 +339,23 @@ public class QEmuStrategy implements HypervisorStrategy {
 		virtualMachine.setProperty(POWERED_OFF, true);
 	}
 	
-	private void storeVMProcessPid(Process process) throws Exception {
-		InputStream psIn = process.getInputStream();
-		int avBytes = psIn.available();
-		byte[] b = new byte[avBytes];
-		psIn.read(b, 0, avBytes);
-		ByteArrayInputStream bIS = new ByteArrayInputStream(b);
-		
-		vmProcessPid = IOUtils.toString(bIS).replace("\n", "");  		
+	private void kill(VirtualMachine virtualMachine) throws Exception {
+		String pid = getPid(virtualMachine);
+		if (pid != null) {
+			new ProcessBuilder("/bin/kill", pid).start().waitFor();
+		}
+	}
+
+	private File getPidFile(final VirtualMachine virtualMachine) {
+		return new File(FileUtils.getTempDirectory(), "qemu-" + virtualMachine.getName() + ".pid");
 	}
 	
-
-	private void kill(VirtualMachine virtualMachine) throws Exception {
-		new ProcessBuilder("/bin/kill", vmProcessPid).start().waitFor();
+	private String getPid(VirtualMachine virtualMachine) {
+		try {
+			return IOUtils.toString(new FileInputStream(getPidFile(virtualMachine))).trim();
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	private void stopCIFS(VirtualMachine virtualMachine) {
@@ -605,7 +600,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	private ProcessBuilder getSystemProcessBuilder(String cmd) throws Exception {
-		return getProcessBuilder("./qemu-system-i386 " /*--nographic*/  + cmd);
+		return getProcessBuilder("qemu-system-i386 --nographic " + cmd);
 	}
 
 	private ProcessBuilder getImgProcessBuilder(String cmd) throws Exception {
@@ -621,10 +616,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 		if (HypervisorUtils.isWindowsHost()) {
 			processBuilder = new ProcessBuilder("cmd", "/C " + cmd);
 		} else if (HypervisorUtils.isLinuxHost()) {
-//			List<String> matchList = HypervisorUtils.splitCmdLine("/bin/bash -c " + cmd);
-//			processBuilder = new ProcessBuilder(
-//					matchList.toArray(new String[] {}));
-			processBuilder = new ProcessBuilder("/bin/bash", "-c", cmd);
+			List<String> matchList = HypervisorUtils.splitCmdLine("./" + cmd);
+			processBuilder = new ProcessBuilder(matchList.toArray(new String[] {}));
 		} else {
 			throw new Exception("Host OS not supported");
 		}
@@ -661,6 +654,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 	public long getCPUTime(VirtualMachine virtualMachine) throws Exception {
 		String[] topStats;
 		long cpuTime = 0;
+		
+		String vmProcessPid = getPid(virtualMachine);
 		
 		StringBuilder topCmd = new StringBuilder();
 		topCmd.append("top -b -n 1 -p ");
