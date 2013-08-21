@@ -19,9 +19,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.connection.channel.direct.Session;
 import net.schmizz.sshj.connection.channel.direct.Session.Command;
-import net.schmizz.sshj.transport.TransportException;
 import net.schmizz.sshj.transport.verification.HostKeyVerifier;
-import net.schmizz.sshj.userauth.UserAuthException;
 
 import org.alfresco.jlan.server.NetworkServer;
 import org.alfresco.jlan.server.ServerListener;
@@ -38,6 +36,8 @@ import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
 
 public class QEmuStrategy implements HypervisorStrategy {
+
+	private static final int AUTHSSH_RETRIES = 5;
 
 	private static final int RANDOM_PORT_RETRIES = 5;
 
@@ -58,7 +58,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final String CURRENT_SNAPSHOT = "current";
 
 	private static final int START_RECHECK_DELAY = 10;
-	private static final int DEF_CONNECTION_TIMEOUT = 120;
+	private static final int DEF_CONNECTION_TIMEOUT = 180;
 
 	private static final int CPU_TIME_INDEX = 10;
 
@@ -548,16 +548,28 @@ public class QEmuStrategy implements HypervisorStrategy {
 		session.close();
 	}
 
-	private SSHClient createAuthSSHClient(VirtualMachine virtualMachine)
-			throws Exception, UserAuthException, TransportException {
-		SSHClient sshClient = createSSHClient(virtualMachine);
-		String user = virtualMachine
-				.getProperty(VirtualMachineConstants.GUEST_USER);
-		String password = virtualMachine
-				.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
-		sshClient.getConnection().setTimeout(DEF_CONNECTION_TIMEOUT);
-		sshClient.authPassword(user, password);
-		return sshClient;
+	private SSHClient createAuthSSHClient(VirtualMachine virtualMachine) throws Exception {
+		
+		int retries = AUTHSSH_RETRIES;
+		SSHClient sshClient = null;
+		
+		while (true) {
+			try {
+				sshClient = createSSHClient(virtualMachine);
+				String user = virtualMachine
+						.getProperty(VirtualMachineConstants.GUEST_USER);
+				String password = virtualMachine
+						.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
+				sshClient.getConnection().setTimeout(DEF_CONNECTION_TIMEOUT);
+				sshClient.authPassword(user, password);
+				return sshClient;
+			} catch (Exception e) {
+				Thread.sleep(10000);
+				if (--retries == 0) {
+					throw e;
+				}
+			}
+		}
 	}
 
 	@Override
