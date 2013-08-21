@@ -38,6 +38,8 @@ import org.ourgrid.virt.strategies.HypervisorUtils;
 
 public class QEmuStrategy implements HypervisorStrategy {
 
+	private static final int RANDOM_PORT_RETRIES = 5;
+
 	private static final int QMP_CAPABILITY_WAIT = 5000;
 
 	private static final Logger LOGGER = Logger.getLogger(QEmuStrategy.class);
@@ -216,13 +218,19 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	private static Integer randomPort() {
-		Integer sshPort = new Random().nextInt(10000) + 10000;
-		return sshPort;
+		int retries = RANDOM_PORT_RETRIES;
+		while (retries-- > 0) {
+			try {
+				Integer port = new Random().nextInt(10000) + 50000;
+				Socket socket = new Socket("127.0.0.1", port);
+				socket.close();
+				return port;
+			} catch (Exception e) {}
+		}
+		throw new IllegalStateException("Could not find a suitable random port");
 	}
 
 	private void checkOSStarted(VirtualMachine virtualMachine) throws Exception {
-
-
 		String startTimeout = virtualMachine
 				.getProperty(VirtualMachineConstants.START_TIMEOUT);
 		boolean checkTimeout = startTimeout != null;
