@@ -6,6 +6,7 @@ import java.io.FilePermission;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.AccessController;
 import java.security.PublicKey;
@@ -222,7 +223,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		while (retries-- > 0) {
 			try {
 				Integer port = new Random().nextInt(10000) + 50000;
-				Socket socket = new Socket("127.0.0.1", port);
+				ServerSocket socket = new ServerSocket(port);
 				socket.close();
 				return port;
 			} catch (Exception e) {}
