@@ -99,7 +99,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		strBuilder.append(" -qmp tcp:127.0.0.1:").append(qmpPort)
 				.append(",server,nowait,nodelay");
 		virtualMachine.setProperty(QMP_PORT, qmpPort);
-
+		
 		File pidFile = getPidFile(virtualMachine);
 		strBuilder.append(" -pidfile \"").append(pidFile.getAbsolutePath()).append("\"");
 		
@@ -115,6 +115,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 			virtualMachine.setProperty(HDA_FILE, hda);
 		}
 
+		
 		if (checkKVM()) {
 			strBuilder.append(" -enable-kvm");
 		}
@@ -220,13 +221,30 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	private static Integer randomPort() {
 		int retries = RANDOM_PORT_RETRIES;
+		Random random = new Random();
 		while (retries-- > 0) {
+			ServerSocket socket = null;
 			try {
-				Integer port = new Random().nextInt(10000) + 50000;
-				ServerSocket socket = new ServerSocket(port);
-				socket.close();
+				Integer port = random.nextInt(50000) + 10000;
+				LOGGER.debug("Trying random port: " + port);
+				socket = new ServerSocket(port);
 				return port;
-			} catch (Exception e) {}
+			} catch (Exception e) {
+				LOGGER.warn("Port busy", e);
+				try {
+					Thread.sleep(random.nextInt(10) * 1000 + 1000);
+				} catch (InterruptedException e1) {
+					// Ignore
+				}
+			} finally {
+				if (socket != null) {
+					try {
+						socket.close();
+					} catch (IOException e) {
+						// Ignore
+					}
+				}
+			}
 		}
 		throw new IllegalStateException("Could not find a suitable random port");
 	}
@@ -347,12 +365,21 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	private File getPidFile(final VirtualMachine virtualMachine) {
-		return new File(FileUtils.getTempDirectory(), "qemu-" + virtualMachine.getName() + ".pid");
+		String temp = System.getProperty("java.io.tmpdir");
+		return new File(new File(temp), "qemu-" + virtualMachine.getName() + ".pid");
 	}
 	
 	private String getPid(VirtualMachine virtualMachine) {
 		try {
-			return IOUtils.toString(new FileInputStream(getPidFile(virtualMachine))).trim();
+			File pidFile = getPidFile(virtualMachine);
+			if (!pidFile.exists()) {
+				return null;
+			}
+			String pid = IOUtils.toString(new FileInputStream(pidFile)).trim();
+			if (pid.length() == 0) {
+				return null;
+			}
+			return pid;
 		} catch (Exception e) {
 			return null;
 		}
