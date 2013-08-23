@@ -155,6 +155,10 @@ public class HypervisorUtils {
 		return checkHostOS("linux");
 	}
 	
+	public static boolean isMacOSHost() {
+		return checkHostOS("mac");
+	}
+	
 	/**
 	 * Checks if host operational system matches given operational system name.
 	 * @param osName the operational system name
@@ -271,4 +275,5 @@ public class HypervisorUtils {
 		
 		return networkStats;
 	}
+
 }

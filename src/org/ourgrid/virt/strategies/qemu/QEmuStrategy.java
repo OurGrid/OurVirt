@@ -654,7 +654,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 		if (HypervisorUtils.isWindowsHost()) {
 			processBuilder = new ProcessBuilder("cmd", "/C " + cmd);
-		} else if (HypervisorUtils.isLinuxHost()) {
+		} else if (HypervisorUtils.isLinuxHost() || HypervisorUtils.isMacOSHost()) {
 			List<String> matchList = HypervisorUtils.splitCmdLine("./" + cmd);
 			processBuilder = new ProcessBuilder(matchList.toArray(new String[] {}));
 		} else {
