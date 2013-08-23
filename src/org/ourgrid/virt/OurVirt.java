@@ -6,9 +6,11 @@ import java.util.Map;
 
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.HypervisorType;
+import org.ourgrid.virt.model.NetworkStats;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorStrategyFactory;
+import org.ourgrid.virt.strategies.HypervisorUtils;
 
 
 /**
@@ -300,8 +302,19 @@ public class OurVirt {
 	 * @throws Exception if the hypervisor does not support this method 
 	 * or if some problem occurs while trying to get the CPUTime for the specified virtual machine process.
 	 */
-	public long getCPUTime(HypervisorType hypervisor, String vmName) throws Exception {
-		return factory.get(hypervisor).getCPUTime(getRegisteredVM(vmName));
+	public long getCPUStats(HypervisorType hypervisor, String vmName) throws Exception {
+		return factory.get(hypervisor).getCPUStats(getRegisteredVM(vmName));
+	}
+	
+	/**
+	 * @param virtualMachine the related virtual machine
+	 * @return the Network Statistics for the specified virtual machine process.
+	 * @throws Exception if the hypervisor does not support this method 
+	 * or if some problem occurs while trying to get the Network Statistics for
+	 * the specified virtual machine process.
+	 */
+	public NetworkStats getNetworkStats(HypervisorType hypervisor, String vmName) throws Exception {
+		return HypervisorUtils.getNetworkStats(getRegisteredVM(vmName));
 	}
 	
 	public void clone(HypervisorType hypervisor, String sourceDevice, String destDevice) throws Exception {

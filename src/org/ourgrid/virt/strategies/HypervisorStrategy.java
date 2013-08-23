@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.ourgrid.virt.model.ExecutionResult;
+import org.ourgrid.virt.model.NetworkStats;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineStatus;
 
@@ -157,7 +158,7 @@ public interface HypervisorStrategy {
 	 * @throws Exception if the hypervisor does not support this method 
 	 * or if some problem occurs while trying to get the CPUTime for the specified virtual machine process.
 	 */
-	public long getCPUTime(VirtualMachine virtualMachine) throws Exception;
+	public long getCPUStats(VirtualMachine virtualMachine) throws Exception;
 
 	/**
 	 * Mounts the specified shared folder in the related virtual machine .

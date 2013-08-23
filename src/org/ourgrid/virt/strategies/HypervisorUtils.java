@@ -15,6 +15,7 @@ import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
 import org.ourgrid.virt.model.ExecutionResult;
+import org.ourgrid.virt.model.NetworkStats;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
 
@@ -219,6 +220,53 @@ public class HypervisorUtils {
 		}
 		return matchList;
 	}
-	
 
+	public static NetworkStats getNetworkStats(VirtualMachine registeredVM) throws Exception {
+		
+		if (!registeredVM.getProperty(VirtualMachineConstants.NETWORK_TYPE)
+				.equals(VirtualMachineConstants.BRIDGED_NET_MODE)) {
+			return null;
+		}
+		
+		
+		String deviceName = registeredVM.getProperty(VirtualMachineConstants.BRIDGED_INTERFACE);
+		
+		StringBuilder cmdSB = new StringBuilder();
+		
+		cmdSB.append("cat /proc/net/dev | grep eth0");
+		
+		ProcessBuilder psProcessBuilder = 
+				new ProcessBuilder("/bin/bash", "-c",cmdSB.toString());
+		
+		Process p = psProcessBuilder.start();
+		
+		int psExitValue = p.waitFor();
+		if (psExitValue != 0) {
+			return null;
+		}
+		
+		String[] ifStats = IOUtils.toString(p.getInputStream()).split("\\s+");
+		
+		NetworkStats networkStats = new NetworkStats();
+		networkStats.setDeviceName(deviceName);
+		networkStats.setReceivedBytes(Long.parseLong(ifStats[2]));
+		networkStats.setReceivedPackets(Long.parseLong(ifStats[3]));
+		networkStats.setReceivedErrors(Long.parseLong(ifStats[4]));
+		networkStats.setReceivedDropped(Long.parseLong(ifStats[5]));
+		networkStats.setReceivedFIFOErrors(Long.parseLong(ifStats[6]));
+		networkStats.setReceivedPktFramingErrors(Long.parseLong(ifStats[7]));
+		networkStats.setReceivedCompressed(Long.parseLong(ifStats[8]));
+		networkStats.setReceivedMulticast(Long.parseLong(ifStats[9]));
+		
+		networkStats.setTransferredBytes(Long.parseLong(ifStats[10]));
+		networkStats.setTransferredPackets(Long.parseLong(ifStats[11]));
+		networkStats.setTransferredErrors(Long.parseLong(ifStats[12]));
+		networkStats.setTransferredDropped(Long.parseLong(ifStats[13]));
+		networkStats.setTransferredFIFOErrors(Long.parseLong(ifStats[14]));
+		networkStats.setTransferredCollisions(Long.parseLong(ifStats[15]));
+		networkStats.setTransferredCarrierLosses(Long.parseLong(ifStats[16]));
+		networkStats.setTransferredCompressed(Long.parseLong(ifStats[17]));
+		
+		return networkStats;
+	}
 }

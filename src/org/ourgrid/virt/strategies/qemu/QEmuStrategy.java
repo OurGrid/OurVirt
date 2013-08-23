@@ -663,7 +663,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public long getCPUTime(VirtualMachine virtualMachine) throws Exception {
+	public long getCPUStats(VirtualMachine virtualMachine) throws Exception {
 		String[] topStats;
 		long cpuTime = 0;
 		

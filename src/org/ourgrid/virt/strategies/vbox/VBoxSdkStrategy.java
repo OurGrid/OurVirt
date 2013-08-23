@@ -712,7 +712,7 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public long getCPUTime(VirtualMachine virtualMachine) throws Exception {
+	public long getCPUStats(VirtualMachine virtualMachine) throws Exception {
 		// TODO Auto-generated method stub
 		return 0;
 	}
