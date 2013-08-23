@@ -228,7 +228,6 @@ public class HypervisorUtils {
 			return null;
 		}
 		
-		
 		String deviceName = registeredVM.getProperty(VirtualMachineConstants.BRIDGED_INTERFACE);
 		
 		StringBuilder cmdSB = new StringBuilder();
@@ -241,6 +240,8 @@ public class HypervisorUtils {
 		Process p = psProcessBuilder.start();
 		
 		int psExitValue = p.waitFor();
+		//Getting the approximate timestamp of the cat process return
+		long timestamp = System.currentTimeMillis();
 		if (psExitValue != 0) {
 			return null;
 		}
@@ -249,6 +250,7 @@ public class HypervisorUtils {
 		
 		NetworkStats networkStats = new NetworkStats();
 		networkStats.setDeviceName(deviceName);
+		networkStats.setTimestamp(timestamp);
 		networkStats.setReceivedBytes(Long.parseLong(ifStats[2]));
 		networkStats.setReceivedPackets(Long.parseLong(ifStats[3]));
 		networkStats.setReceivedErrors(Long.parseLong(ifStats[4]));

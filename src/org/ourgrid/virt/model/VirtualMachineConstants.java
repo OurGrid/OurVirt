@@ -40,4 +40,6 @@ public class VirtualMachineConstants {
 	public static final String SDK_HOME = "sdkhome";
 	
 	public static final Integer DEFAULT_SSH_PORT = 22;
+	
+	public static final String BRIDGED_NET_MODE = "bridged";
 }
