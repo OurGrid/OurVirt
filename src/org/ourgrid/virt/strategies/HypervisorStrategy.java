@@ -3,6 +3,7 @@ package org.ourgrid.virt.strategies;
 import java.util.List;
 import java.util.Map;
 
+import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.NetworkStats;
 import org.ourgrid.virt.model.VirtualMachine;
@@ -203,5 +204,7 @@ public interface HypervisorStrategy {
 
 	void setProperty(VirtualMachine registeredVM, String propertyName,
 			Object propertyValue) throws Exception;
+
+	public DiskStats getDiskStats(VirtualMachine registeredVM) throws Exception;
 
 }

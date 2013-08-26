@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.HypervisorType;
 import org.ourgrid.virt.model.NetworkStats;
@@ -315,6 +316,17 @@ public class OurVirt {
 	 */
 	public NetworkStats getNetworkStats(HypervisorType hypervisor, String vmName) throws Exception {
 		return HypervisorUtils.getNetworkStats(getRegisteredVM(vmName));
+	}
+	
+	/**
+	 * @param virtualMachine the related virtual machine
+	 * @return the Disk Statistics for the specified virtual machine process.
+	 * @throws Exception if the hypervisor does not support this method 
+	 * or if some problem occurs while trying to get the Disk Statistics for
+	 * the specified virtual machine process.
+	 */
+	public DiskStats getDiskStats(HypervisorType hypervisor, String vmName) throws Exception {
+		return factory.get(hypervisor).getDiskStats(getRegisteredVM(vmName));
 	}
 	
 	public void clone(HypervisorType hypervisor, String sourceDevice, String destDevice) throws Exception {

@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FilePermission;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -26,7 +27,9 @@ import org.alfresco.jlan.server.ServerListener;
 import org.alfresco.jlan.smb.server.SMBServer;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.log4j.Logger;
+import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.SharedFolder;
 import org.ourgrid.virt.model.VirtualMachine;
@@ -34,6 +37,10 @@ import org.ourgrid.virt.model.VirtualMachineConstants;
 import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class QEmuStrategy implements HypervisorStrategy {
 
@@ -674,7 +681,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		checkOSStarted(virtualMachine);
 	}
 	
-	private void runQMPCommand(VirtualMachine virtualMachine,
+	private JsonElement runQMPCommand(VirtualMachine virtualMachine,
 			String command) throws Exception {
 		Socket s = new Socket("127.0.0.1",
 				(Integer) virtualMachine.getProperty(QMP_PORT));
@@ -684,9 +691,16 @@ public class QEmuStrategy implements HypervisorStrategy {
 		
 		Thread.sleep(QMP_CAPABILITY_WAIT);
 		
+		InputStream is = s.getInputStream();
+		is.close();
+
 		ps.println("{\"execute\":\"" + command + "\"}");
 		ps.flush();
+		JsonParser jParser = new JsonParser();
+		JsonElement response = jParser.parse(new InputStreamReader(is)); 
 		s.close();
+		
+		return response;
 	}
 
 	@Override
@@ -736,5 +750,21 @@ public class QEmuStrategy implements HypervisorStrategy {
 		cpuTime += hundredths*10; 
 		
 		return cpuTime;
+	}
+
+	@Override
+	public DiskStats getDiskStats(VirtualMachine registeredVM) throws Exception {
+		
+		JsonElement bStats = runQMPCommand(registeredVM, "query-blockstats");
+		
+		for (JsonElement jsElement : bStats.getAsJsonArray()) {
+			JsonObject jsObj = jsElement.getAsJsonObject();
+			
+			if (jsObj.has("return")) {
+				System.out.println("1st level");
+			}
+		}
+		
+		return new DiskStats();
 	}
 }
