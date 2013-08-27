@@ -29,7 +29,6 @@ import org.alfresco.jlan.server.ServerListener;
 import org.alfresco.jlan.smb.server.SMBServer;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.apache.commons.io.input.ReaderInputStream;
 import org.apache.log4j.Logger;
 import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
@@ -73,6 +72,44 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final int CPU_TIME_INDEX = 10;
 
 	private String qemuLocation = System.getProperty("qemu.home");
+	
+	public enum QmpCmd {
+		STOP("quit"),
+		REBOOT("system_reset"),
+		CAPABILITIES("qmp_capabilities"),
+		BLOCKSTATS("query-blockstats");
+		
+		private String cmd;
+		QmpCmd(String cmd) {
+			this.cmd = cmd;
+		}
+		
+		public String getCmd() {
+			return cmd;
+		}
+	}
+	
+	public enum QmpJsonTag {
+		RETURN("return"),
+		STATS("stats"),
+		DEVICE("device"),
+		READ_BYTES("rd_bytes"),
+		READ_OPS("rd_operations"),
+		READ_TOTAL_TIME_NS("rd_total_time_ns"),
+		WRITE_BYTES("wr_bytes"),
+		WRITE_OPS("wr_operations"),
+		WRITE_TOTAL_TIME_NS("wr_total_time_ns"); 
+		
+		private String tag;
+		QmpJsonTag(String tag) {
+			this.tag = tag;
+		}
+		
+		public String getTag() {
+			return tag;
+		}
+	
+	};
 
 	@Override
 	public void start(final VirtualMachine virtualMachine) throws Exception {
@@ -353,7 +390,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	public void stop(VirtualMachine virtualMachine) throws Exception {
 		stopCIFS(virtualMachine);
 		
-		runQMPCommand(virtualMachine, "quit");
+		runQMPCommand(virtualMachine, QmpCmd.STOP.getCmd());
 
 		Process p = virtualMachine.getProperty(PROCESS);
 		p.destroy();
@@ -680,7 +717,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	@Override
 	public void reboot(VirtualMachine virtualMachine) throws Exception {
-		runQMPCommand(virtualMachine, "system_reset");
+		runQMPCommand(virtualMachine, QmpCmd.REBOOT.getCmd());
 		checkOSStarted(virtualMachine);
 	}
 	
@@ -692,7 +729,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		BufferedReader in = new BufferedReader(
 				new InputStreamReader(s.getInputStream()));
 		
-		ps.println("{\"execute\":\"qmp_capabilities\"}");
+		ps.println("{\"execute\":\"" + QmpCmd.CAPABILITIES.getCmd() + "\"}");
 		ps.flush();
 		
 		Thread.sleep(QMP_CAPABILITY_WAIT);
@@ -772,22 +809,25 @@ public class QEmuStrategy implements HypervisorStrategy {
 		
 		List<DiskStats> disksStats = new ArrayList<DiskStats>();
 		
-		JsonElement bStats = runQMPCommand(registeredVM, "query-blockstats");
+		JsonElement bStats = runQMPCommand(registeredVM, QmpCmd.BLOCKSTATS.getCmd());
+		//get timestamp subtracting qmp_capabilities command waited time
+		long timestamp = System.currentTimeMillis() - QMP_CAPABILITY_WAIT;
 		JsonObject ret = bStats.getAsJsonObject();
-		JsonArray devices = ret.get("return").getAsJsonArray();
+		JsonArray devices = ret.get(QmpJsonTag.RETURN.getTag()).getAsJsonArray();
 		
 		for (JsonElement device : devices) {
 			JsonObject deviceObj = device.getAsJsonObject();
-			JsonObject deviceStats = deviceObj.get("stats").getAsJsonObject();
+			JsonObject deviceStats = deviceObj.get(QmpJsonTag.STATS.getTag()).getAsJsonObject();
 			
 			DiskStats diskStats = new DiskStats();
-			diskStats.setDeviceName(deviceObj.get("device").getAsString());
-			diskStats.setReadBytes(deviceStats.get("rd_bytes").getAsLong());
-			diskStats.setReadOps(deviceStats.get("rd_operations").getAsLong());
-			diskStats.setReadTotalTime(deviceStats.get("rd_total_time_ns").getAsLong()/1000);
-			diskStats.setWriteBytes(deviceStats.get("wr_bytes").getAsLong());
-			diskStats.setWriteOps(deviceStats.get("wr_operations").getAsLong());
-			diskStats.setWriteTotalTime(deviceStats.get("wr_total_time_ns").getAsLong()/1000);
+			diskStats.setDeviceName(deviceObj.get(QmpJsonTag.DEVICE.getTag()).getAsString());
+			diskStats.setTimestamp(timestamp);
+			diskStats.setReadBytes(deviceStats.get(QmpJsonTag.READ_BYTES.getTag()).getAsLong());
+			diskStats.setReadOps(deviceStats.get(QmpJsonTag.READ_OPS.getTag()).getAsLong());
+			diskStats.setReadTotalTime(deviceStats.get(QmpJsonTag.READ_TOTAL_TIME_NS.getTag()).getAsLong()/1000);
+			diskStats.setWriteBytes(deviceStats.get(QmpJsonTag.WRITE_BYTES.getTag()).getAsLong());
+			diskStats.setWriteOps(deviceStats.get(QmpJsonTag.WRITE_OPS.getTag()).getAsLong());
+			diskStats.setWriteTotalTime(deviceStats.get(QmpJsonTag.WRITE_TOTAL_TIME_NS.getTag()).getAsLong()/1000);
 			
 			disksStats.add(diskStats);
 		}

@@ -4,6 +4,7 @@ public class DiskStats {
 	
 	private String deviceName;
 	
+	private long timestamp;
 	private long readTotalTime;
 	private long readOps;
 	private long readBytes;
@@ -57,5 +58,13 @@ public class DiskStats {
 
 	public void setDeviceName(String deviceName) {
 		this.deviceName = deviceName;
+	}
+
+	public long getTimestamp() {
+		return timestamp;
+	}
+
+	public void setTimestamp(long timestamp) {
+		this.timestamp = timestamp;
 	}
 }

@@ -5,7 +5,6 @@ import java.util.Map;
 
 import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
-import org.ourgrid.virt.model.NetworkStats;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineStatus;
 
