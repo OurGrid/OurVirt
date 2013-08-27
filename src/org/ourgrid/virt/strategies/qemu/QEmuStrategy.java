@@ -1,5 +1,6 @@
 package org.ourgrid.virt.strategies.qemu;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FilePermission;
@@ -11,6 +12,7 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.AccessController;
 import java.security.PublicKey;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,7 @@ import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -686,18 +689,30 @@ public class QEmuStrategy implements HypervisorStrategy {
 		Socket s = new Socket("127.0.0.1",
 				(Integer) virtualMachine.getProperty(QMP_PORT));
 		PrintStream ps = new PrintStream(s.getOutputStream());
+		BufferedReader in = new BufferedReader(
+				new InputStreamReader(s.getInputStream()));
+		
 		ps.println("{\"execute\":\"qmp_capabilities\"}");
 		ps.flush();
 		
 		Thread.sleep(QMP_CAPABILITY_WAIT);
 		
-		InputStream is = s.getInputStream();
-		is.close();
 
 		ps.println("{\"execute\":\"" + command + "\"}");
 		ps.flush();
+		
+		StringBuilder sb = new StringBuilder();
+		
+		while (in.ready()) {
+			sb.append(in.readLine());
+			sb.append("\n");
+		}
+		
+		String cmdResp = sb.toString().split("\n")[2];
+		
 		JsonParser jParser = new JsonParser();
-		JsonElement response = jParser.parse(new InputStreamReader(is)); 
+		JsonElement response = jParser.parse(cmdResp);
+		
 		s.close();
 		
 		return response;
@@ -753,18 +768,30 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public DiskStats getDiskStats(VirtualMachine registeredVM) throws Exception {
+	public List<DiskStats> getDiskStats(VirtualMachine registeredVM) throws Exception {
+		
+		List<DiskStats> disksStats = new ArrayList<DiskStats>();
 		
 		JsonElement bStats = runQMPCommand(registeredVM, "query-blockstats");
+		JsonObject ret = bStats.getAsJsonObject();
+		JsonArray devices = ret.get("return").getAsJsonArray();
 		
-		for (JsonElement jsElement : bStats.getAsJsonArray()) {
-			JsonObject jsObj = jsElement.getAsJsonObject();
+		for (JsonElement device : devices) {
+			JsonObject deviceObj = device.getAsJsonObject();
+			JsonObject deviceStats = deviceObj.get("stats").getAsJsonObject();
 			
-			if (jsObj.has("return")) {
-				System.out.println("1st level");
-			}
+			DiskStats diskStats = new DiskStats();
+			diskStats.setDeviceName(deviceObj.get("device").getAsString());
+			diskStats.setReadBytes(deviceStats.get("rd_bytes").getAsLong());
+			diskStats.setReadOps(deviceStats.get("rd_operations").getAsLong());
+			diskStats.setReadTotalTime(deviceStats.get("rd_total_time_ns").getAsLong()/1000);
+			diskStats.setWriteBytes(deviceStats.get("wr_bytes").getAsLong());
+			diskStats.setWriteOps(deviceStats.get("wr_operations").getAsLong());
+			diskStats.setWriteTotalTime(deviceStats.get("wr_total_time_ns").getAsLong()/1000);
+			
+			disksStats.add(diskStats);
 		}
 		
-		return new DiskStats();
+		return disksStats;
 	}
 }

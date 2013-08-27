@@ -2,6 +2,8 @@ package org.ourgrid.virt.model;
 
 public class DiskStats {
 	
+	private String deviceName;
+	
 	private long readTotalTime;
 	private long readOps;
 	private long readBytes;
@@ -47,5 +49,13 @@ public class DiskStats {
 	}
 	public void setWriteBytes(long writeBytes) {
 		this.writeBytes = writeBytes;
+	}
+
+	public String getDeviceName() {
+		return deviceName;
+	}
+
+	public void setDeviceName(String deviceName) {
+		this.deviceName = deviceName;
 	}
 }

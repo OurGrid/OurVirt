@@ -325,7 +325,7 @@ public class OurVirt {
 	 * or if some problem occurs while trying to get the Disk Statistics for
 	 * the specified virtual machine process.
 	 */
-	public DiskStats getDiskStats(HypervisorType hypervisor, String vmName) throws Exception {
+	public List<DiskStats> getDiskStats(HypervisorType hypervisor, String vmName) throws Exception {
 		return factory.get(hypervisor).getDiskStats(getRegisteredVM(vmName));
 	}
 	

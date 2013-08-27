@@ -29,11 +29,17 @@ public class Main2 {
 		conf.put(VirtualMachineConstants.DISK_IMAGE_PATH, IMG_LOCATION);
 		conf.put(VirtualMachineConstants.START_TIMEOUT, "180");
 		
-		OURVIRT.register(vmName, conf);
-		OURVIRT.start(HypervisorType.QEMU, vmName);
-		System.out.println(OURVIRT.getDiskStats(HypervisorType.QEMU, vmName));
+		try {
+			OURVIRT.register(vmName, conf);
+			OURVIRT.start(HypervisorType.QEMU, vmName);
+			System.out.println(OURVIRT.getDiskStats(HypervisorType.QEMU, vmName));
+			
+			OURVIRT.stop(HypervisorType.QEMU, vmName);
+		} catch(Exception e) {
+			OURVIRT.stop(HypervisorType.QEMU, vmName);
+			System.out.println(e.getMessage());
+		}
 		
-		OURVIRT.stop(HypervisorType.QEMU, vmName);
 		
 		
 		

@@ -205,6 +205,6 @@ public interface HypervisorStrategy {
 	void setProperty(VirtualMachine registeredVM, String propertyName,
 			Object propertyValue) throws Exception;
 
-	public DiskStats getDiskStats(VirtualMachine registeredVM) throws Exception;
+	public List<DiskStats> getDiskStats(VirtualMachine registeredVM) throws Exception;
 
 }

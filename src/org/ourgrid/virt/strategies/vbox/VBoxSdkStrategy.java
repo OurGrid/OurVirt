@@ -719,7 +719,7 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public DiskStats getDiskStats(VirtualMachine registeredVM) throws Exception {
+	public List<DiskStats> getDiskStats(VirtualMachine registeredVM) throws Exception {
 		// TODO Auto-generated method stub
 		return null;
 	}
