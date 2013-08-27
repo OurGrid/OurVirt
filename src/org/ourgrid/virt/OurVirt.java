@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.ourgrid.virt.model.CPUStats;
 import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.HypervisorType;
@@ -303,7 +304,7 @@ public class OurVirt {
 	 * @throws Exception if the hypervisor does not support this method 
 	 * or if some problem occurs while trying to get the CPUTime for the specified virtual machine process.
 	 */
-	public long getCPUStats(HypervisorType hypervisor, String vmName) throws Exception {
+	public CPUStats getCPUStats(HypervisorType hypervisor, String vmName) throws Exception {
 		return factory.get(hypervisor).getCPUStats(getRegisteredVM(vmName));
 	}
 	

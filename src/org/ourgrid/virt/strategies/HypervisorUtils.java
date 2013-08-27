@@ -14,12 +14,15 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
+import org.ourgrid.virt.model.CPUStats;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.NetworkStats;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
 
 public class HypervisorUtils {
+	
+	private static final int CPU_TIME_INDEX = 10;
 
 	/**
 	 * Runs a process and checks whether the process finished with exit value 0.
@@ -275,5 +278,60 @@ public class HypervisorUtils {
 		
 		return networkStats;
 	}
-
+	
+	public static CPUStats getCPUStats(String vmProcessPid) throws Exception {
+		
+		CPUStats cpuStats;
+		
+		String[] topStats;
+		long cpuTime = 0;
+		
+		StringBuilder topCmd = new StringBuilder();
+		topCmd.append("top -b -n 1 -p ");
+		topCmd.append(vmProcessPid);
+		topCmd.append(" | grep ");
+		topCmd.append(vmProcessPid);
+		
+		ProcessBuilder psProcessBuilder = 
+				new ProcessBuilder("/bin/bash", "-c", topCmd.toString());
+		
+		Process psProcess = psProcessBuilder.start();
+		InputStream psIn = psProcess.getInputStream();
+		int psExitValue = psProcess.waitFor();
+		//Getting the approximate timestamp of the top process return
+		long timestamp = System.currentTimeMillis();
+		if (psExitValue != 0) {
+			throw new Exception("Could not retrieve cpu statistics. " +
+					"Process return value: " + psExitValue);
+		}
+		
+		String processStr = IOUtils.toString(psIn);
+		topStats = processStr.trim().split("\\s+");
+		
+		if (topStats.length < CPU_TIME_INDEX + 1) {
+			throw new Exception("Could not retrieve cpu statistics.");
+		}
+		
+//		CPUTime Pattern: [DD-]mm:ss.hh
+		String cpuTimeStr = topStats[CPU_TIME_INDEX];
+		String[] cpuTimeArray = cpuTimeStr.split("-");
+		if (cpuTimeArray.length > 1) {
+			cpuTime += Long.parseLong(cpuTimeArray[0])*24*60*60;
+			cpuTimeStr = cpuTimeArray[1];
+		}
+		long minutes = Long.parseLong(cpuTimeStr.split(":")[0]);
+		long seconds = Long.parseLong(cpuTimeStr.split(":")[1].split("\\.")[0]);
+		long hundredths = Long.parseLong(cpuTimeStr.split(":")[1].split("\\.")[1]);
+		
+		// Changing time unit to ms
+		cpuTime += minutes*60*1000;
+		cpuTime += seconds*1000;
+		cpuTime += hundredths*10; 
+		
+		cpuStats = new CPUStats();
+		cpuStats.setCpuTime(cpuTime);
+		cpuStats.setTimestamp(timestamp);
+		
+		return cpuStats;
+	}
 }

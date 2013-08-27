@@ -15,6 +15,7 @@ import net.schmizz.sshj.transport.verification.HostKeyVerifier;
 
 import org.apache.commons.io.IOUtils;
 import org.ourgrid.virt.exception.SnapshotAlreadyExistsException;
+import org.ourgrid.virt.model.CPUStats;
 import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
@@ -713,9 +714,9 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public long getCPUStats(VirtualMachine virtualMachine) throws Exception {
+	public CPUStats getCPUStats(VirtualMachine virtualMachine) throws Exception {
 		// TODO Auto-generated method stub
-		return 0;
+		return null;
 	}
 
 	@Override

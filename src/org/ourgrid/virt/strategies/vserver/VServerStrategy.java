@@ -8,6 +8,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import org.ourgrid.virt.model.CPUStats;
 import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.VirtualMachine;
@@ -527,9 +528,9 @@ public class VServerStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public long getCPUStats(VirtualMachine virtualMachine) throws Exception {
+	public CPUStats getCPUStats(VirtualMachine virtualMachine) throws Exception {
 		// TODO Auto-generated method stub
-		return 0;
+		return null;
 	}
 
 	@Override

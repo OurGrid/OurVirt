@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FilePermission;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.ServerSocket;
@@ -30,6 +29,7 @@ import org.alfresco.jlan.smb.server.SMBServer;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
+import org.ourgrid.virt.model.CPUStats;
 import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
 import org.ourgrid.virt.model.SharedFolder;
@@ -68,8 +68,6 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	private static final int START_RECHECK_DELAY = 10;
 	private static final int DEF_CONNECTION_TIMEOUT = 180;
-
-	private static final int CPU_TIME_INDEX = 10;
 
 	private String qemuLocation = System.getProperty("qemu.home");
 	
@@ -756,60 +754,16 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public long getCPUStats(VirtualMachine virtualMachine) throws Exception {
-		String[] topStats;
-		long cpuTime = 0;
-		
-		String vmProcessPid = getPid(virtualMachine);
-		
-		StringBuilder topCmd = new StringBuilder();
-		topCmd.append("top -b -n 1 -p ");
-		topCmd.append(vmProcessPid);
-		topCmd.append(" | grep ");
-		topCmd.append(vmProcessPid);
-		
-		ProcessBuilder psProcessBuilder = 
-				getProcessBuilder(topCmd.toString());
-		
-		Process psProcess = psProcessBuilder.start();
-		InputStream psIn = psProcess.getInputStream();
-		int psExitValue = psProcess.waitFor();
-		if (psExitValue != 0) {
-			return -1;
-		}
-		
-		String processStr = IOUtils.toString(psIn);
-		topStats = processStr.trim().split("\\s+");
-		
-		if (topStats.length < CPU_TIME_INDEX + 1) {
-			return -1;
-		}
-		
-//		CPUTime Pattern: [DD-]mm:ss.hh
-		String cpuTimeStr = topStats[CPU_TIME_INDEX];
-		String[] cpuTimeArray = cpuTimeStr.split("-");
-		if (cpuTimeArray.length > 1) {
-			cpuTime += Long.parseLong(cpuTimeArray[0])*24*60*60;
-			cpuTimeStr = cpuTimeArray[1];
-		}
-		long minutes = Long.parseLong(cpuTimeStr.split(":")[0]);
-		long seconds = Long.parseLong(cpuTimeStr.split(":")[1].split("\\.")[0]);
-		long hundredths = Long.parseLong(cpuTimeStr.split(":")[1].split("\\.")[1]);
-		
-		// Changing time unit to ms
-		cpuTime += minutes*60*1000;
-		cpuTime += seconds*1000;
-		cpuTime += hundredths*10; 
-		
-		return cpuTime;
+	public CPUStats getCPUStats(VirtualMachine virtualMachine) throws Exception {
+		return HypervisorUtils.getCPUStats(getPid(virtualMachine));
 	}
 
 	@Override
-	public List<DiskStats> getDiskStats(VirtualMachine registeredVM) throws Exception {
+	public List<DiskStats> getDiskStats(VirtualMachine virtualMachine) throws Exception {
 		
 		List<DiskStats> disksStats = new ArrayList<DiskStats>();
 		
-		JsonElement bStats = runQMPCommand(registeredVM, QmpCmd.BLOCKSTATS.getCmd());
+		JsonElement bStats = runQMPCommand(virtualMachine, QmpCmd.BLOCKSTATS.getCmd());
 		//get timestamp subtracting qmp_capabilities command waited time
 		long timestamp = System.currentTimeMillis() - QMP_CAPABILITY_WAIT;
 		JsonObject ret = bStats.getAsJsonObject();

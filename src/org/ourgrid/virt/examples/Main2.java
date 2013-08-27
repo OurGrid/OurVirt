@@ -32,7 +32,7 @@ public class Main2 {
 		try {
 			OURVIRT.register(vmName, conf);
 			OURVIRT.start(HypervisorType.QEMU, vmName);
-			System.out.println(OURVIRT.getDiskStats(HypervisorType.QEMU, vmName));
+			System.out.println(OURVIRT.getCPUStats(HypervisorType.QEMU, vmName).getCpuTime());
 			
 			OURVIRT.stop(HypervisorType.QEMU, vmName);
 		} catch(Exception e) {
