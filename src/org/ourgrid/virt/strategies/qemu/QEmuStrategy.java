@@ -724,33 +724,32 @@ public class QEmuStrategy implements HypervisorStrategy {
 		Socket s = new Socket("127.0.0.1",
 				(Integer) virtualMachine.getProperty(QMP_PORT));
 		PrintStream ps = new PrintStream(s.getOutputStream());
-		BufferedReader in = new BufferedReader(
-				new InputStreamReader(s.getInputStream()));
-		
+//		BufferedReader in = new BufferedReader(
+//				new InputStreamReader(s.getInputStream()));
+//		
 		ps.println("{\"execute\":\"" + QmpCmd.CAPABILITIES.getCmd() + "\"}");
 		ps.flush();
 		
 		Thread.sleep(QMP_CAPABILITY_WAIT);
 		
-
 		ps.println("{\"execute\":\"" + command + "\"}");
 		ps.flush();
 		
-		StringBuilder sb = new StringBuilder();
+//		StringBuilder sb = new StringBuilder();
+//		
+//		while (in.ready()) {
+//			sb.append(in.readLine());
+//			sb.append("\n");
+//		}
 		
-		while (in.ready()) {
-			sb.append(in.readLine());
-			sb.append("\n");
-		}
-		
-		String cmdResp = sb.toString().split("\n")[2];
-		
-		JsonParser jParser = new JsonParser();
-		JsonElement response = jParser.parse(cmdResp);
-		
+//		String cmdResp = sb.toString().split("\n")[2];
+//		
+//		JsonParser jParser = new JsonParser();
+//		JsonElement response = jParser.parse(cmdResp);
+//		
 		s.close();
 		
-		return response;
+		return null;
 	}
 
 	@Override
