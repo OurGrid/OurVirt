@@ -540,6 +540,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		SSHClient sshClient = createAuthSSHClient(virtualMachine);
 
 		Session session = sshClient.startSession();
+		session.setAutoExpand(true);
 		Command command = session.exec(commandLine);
 
 		command.join();
