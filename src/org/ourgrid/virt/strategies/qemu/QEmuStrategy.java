@@ -1,18 +1,18 @@
 package org.ourgrid.virt.strategies.qemu;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FilePermission;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.AccessController;
 import java.security.PublicKey;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -42,7 +42,6 @@ import org.ourgrid.virt.strategies.HypervisorUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 
 public class QEmuStrategy implements HypervisorStrategy {
 
@@ -228,22 +227,23 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	private boolean checkKVM() {
 		if (!HypervisorUtils.isLinuxHost()) {
+			LOGGER.debug("It is not a linux host");
 			return false;
 		}
 		if (!new File("/dev/kvm").exists()) {
+			LOGGER.debug("/dev/kvm does not exist");
 			return false;
 		}
 		
-		try {
-			FilePermission fp = new FilePermission("/dev/kvm", "read,write");
-			AccessController.checkPermission(fp);
-		} catch (Exception e) {
+		if (!new File("/dev/kvm").canRead() || !new File("/dev/kvm").canWrite()) {
+			LOGGER.debug("No permission to access /dev/kvm");
 			return false;
 		}
 		
 		try {
 			return new ProcessBuilder("kvm-ok").start().waitFor() == 0;
 		} catch (Exception e) {
+			LOGGER.debug("kvm-ok failed");
 			return false;
 		}
 	}
@@ -371,7 +371,10 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 		SSHClient ssh = new SSHClient();
 		ssh.addHostKeyVerifier(createBlankHostKeyVerifier());
+		
+		LOGGER.debug("Connecting SSH client " + ip + ":" + sshPort);
 		ssh.connect(ip, sshPort);
+		
 		return ssh;
 	}
 
@@ -537,18 +540,33 @@ public class QEmuStrategy implements HypervisorStrategy {
 					"Unable to execute command. Machine is not started.");
 		}
 
+		LOGGER.debug("Exec: " + commandLine);
+		
 		SSHClient sshClient = createAuthSSHClient(virtualMachine);
 
 		Session session = sshClient.startSession();
 		session.setAutoExpand(true);
 		Command command = session.exec(commandLine);
+		command.setAutoExpand(true);
 
+		LOGGER.debug("Reading stdout of " + commandLine);
+		InputStream outIS = command.getInputStream();
+		List<String> stdOut = new LinkedList<String>();
+		if (outIS.available() > 0) {
+			readFully(outIS, stdOut);
+		}
+		
+		LOGGER.debug("Reading stderr of " + commandLine);
+		InputStream errIS = command.getErrorStream();
+		List<String> stdErr = new LinkedList<String>();
+		if (errIS.available() > 0) {
+			readFully(errIS, stdErr);
+		}
+		
 		command.join();
 
 		Integer exitStatus = command.getExitStatus();
-		List<String> stdOut = IOUtils.readLines(command.getInputStream());
-		List<String> stdErr = IOUtils.readLines(command.getErrorStream());
-
+		
 		ExecutionResult executionResult = new ExecutionResult();
 		executionResult.setReturnValue(exitStatus);
 		executionResult.setStdErr(stdErr);
@@ -559,6 +577,13 @@ public class QEmuStrategy implements HypervisorStrategy {
 		sshClient.disconnect();
 
 		return executionResult;
+	}
+
+	private void readFully(InputStream outIS, List<String> stdOut)
+			throws IOException {
+		ByteArrayOutputStream baos = net.schmizz.sshj.common.IOUtils.readFully(outIS);
+		String stdOutFull = baos.toString();
+		Collections.addAll(stdOut, stdOutFull.split("\n"));
 	}
 
 	@Override
@@ -634,9 +659,14 @@ public class QEmuStrategy implements HypervisorStrategy {
 				String password = virtualMachine
 						.getProperty(VirtualMachineConstants.GUEST_PASSWORD);
 				sshClient.getConnection().setTimeout(DEF_CONNECTION_TIMEOUT);
+				
+				LOGGER.debug("Trying password authentication with to=" + DEF_CONNECTION_TIMEOUT);
 				sshClient.authPassword(user, password);
+				LOGGER.debug("SSHClient authenticated.");
+				
 				return sshClient;
 			} catch (Exception e) {
+				LOGGER.debug("Auth SSH Failed. Cause: " + e.getMessage() + ". Retrying...");
 				Thread.sleep(10000);
 				if (--retries == 0) {
 					throw e;
