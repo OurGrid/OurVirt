@@ -406,9 +406,15 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 	
 	private void kill(VirtualMachine virtualMachine) throws Exception {
-		String pid = getPid(virtualMachine);
-		if (pid != null) {
-			new ProcessBuilder("/bin/kill", pid).start().waitFor();
+		try {
+			String pid = getPid(virtualMachine);
+			if (pid != null) {
+				new ProcessBuilder("/bin/kill", pid).start().waitFor();
+			}
+		} catch (Exception e) {
+			throw e;
+		} finally {
+			getPidFile(virtualMachine).delete();
 		}
 	}
 
@@ -540,7 +546,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 					"Unable to execute command. Machine is not started.");
 		}
 
-		LOGGER.debug("Exec: " + commandLine);
+		LOGGER.info("Exec: " + commandLine);
 		
 		SSHClient sshClient = createAuthSSHClient(virtualMachine);
 
@@ -549,19 +555,21 @@ public class QEmuStrategy implements HypervisorStrategy {
 		Command command = session.exec(commandLine);
 		command.setAutoExpand(true);
 
-		LOGGER.debug("Reading stdout of " + commandLine);
+		LOGGER.info("Reading stdout of " + commandLine);
 		InputStream outIS = command.getInputStream();
 		List<String> stdOut = new LinkedList<String>();
 		if (outIS.available() > 0) {
 			readFully(outIS, stdOut);
 		}
+		LOGGER.info("Stdout " + stdOut);
 		
-		LOGGER.debug("Reading stderr of " + commandLine);
+		LOGGER.info("Reading stderr of " + commandLine);
 		InputStream errIS = command.getErrorStream();
 		List<String> stdErr = new LinkedList<String>();
 		if (errIS.available() > 0) {
 			readFully(errIS, stdErr);
 		}
+		LOGGER.info("Stderr " + stdErr);
 		
 		command.join();
 
@@ -760,11 +768,11 @@ public class QEmuStrategy implements HypervisorStrategy {
 //		
 		ps.println("{\"execute\":\"" + QmpCmd.CAPABILITIES.getCmd() + "\"}");
 		ps.flush();
-		
 		Thread.sleep(QMP_CAPABILITY_WAIT);
 		
 		ps.println("{\"execute\":\"" + command + "\"}");
 		ps.flush();
+		Thread.sleep(QMP_CAPABILITY_WAIT);
 		
 //		StringBuilder sb = new StringBuilder();
 //		
