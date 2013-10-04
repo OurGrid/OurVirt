@@ -1,18 +1,14 @@
 package org.ourgrid.virt.strategies.qemu;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.security.PublicKey;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -555,43 +551,22 @@ public class QEmuStrategy implements HypervisorStrategy {
 		Command command = session.exec(commandLine);
 		command.setAutoExpand(true);
 
-		LOGGER.info("Reading stdout of " + commandLine);
-		InputStream outIS = command.getInputStream();
-		List<String> stdOut = new LinkedList<String>();
-		if (outIS.available() > 0) {
-			readFully(outIS, stdOut);
-		}
-		LOGGER.info("Stdout " + stdOut);
-		
-		LOGGER.info("Reading stderr of " + commandLine);
-		InputStream errIS = command.getErrorStream();
-		List<String> stdErr = new LinkedList<String>();
-		if (errIS.available() > 0) {
-			readFully(errIS, stdErr);
-		}
-		LOGGER.info("Stderr " + stdErr);
-		
 		command.join();
 
 		Integer exitStatus = command.getExitStatus();
-		
+		List<String> stdOut = IOUtils.readLines(command.getInputStream());
+		List<String> stdErr = IOUtils.readLines(command.getErrorStream());
+
 		ExecutionResult executionResult = new ExecutionResult();
 		executionResult.setReturnValue(exitStatus);
 		executionResult.setStdErr(stdErr);
 		executionResult.setStdOut(stdOut);
-
+		
 		session.close();
 
 		sshClient.disconnect();
 
 		return executionResult;
-	}
-
-	private void readFully(InputStream outIS, List<String> stdOut)
-			throws IOException {
-		ByteArrayOutputStream baos = net.schmizz.sshj.common.IOUtils.readFully(outIS);
-		String stdOutFull = baos.toString();
-		Collections.addAll(stdOut, stdOutFull.split("\n"));
 	}
 
 	@Override
