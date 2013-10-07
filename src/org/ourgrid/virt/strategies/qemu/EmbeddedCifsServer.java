@@ -74,6 +74,7 @@ public class EmbeddedCifsServer {
 		cifsConfig.setTcpipSMBPort(port);
 		cifsConfig.setServerName("OurVirtShare");
 		cifsConfig.setDomainName("OurVirtShare");
+		cifsConfig.setSocketTimeout(0);
 		cfg.addConfigSection(cifsConfig);
 		
 		CoreServerConfigSection coreConfig = new CoreServerConfigSection(cfg);
