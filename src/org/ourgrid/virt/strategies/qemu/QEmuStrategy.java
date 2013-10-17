@@ -1,8 +1,10 @@
 package org.ourgrid.virt.strategies.qemu;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -38,6 +40,7 @@ import org.ourgrid.virt.strategies.HypervisorUtils;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class QEmuStrategy implements HypervisorStrategy {
 
@@ -212,10 +215,26 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	private void configureBridged(VirtualMachine virtualMachine,
-			StringBuilder strBuilder) {
+			StringBuilder strBuilder) throws Exception {
+		String tapIf = "tap-" + virtualMachine.getName(); 
+		Process startTapProcess = getProcessBuilder(
+				"./qemu-bridge mktap " + tapIf + " $USER; " +
+				"./qemu-bridge ifup " + tapIf + "; " +
+				"./qemu-bridge addtobr br0 " + tapIf).start();
+		startTapProcess.waitFor();
+		
 		String macAddr = virtualMachine.getProperty(VirtualMachineConstants.MAC);
 		strBuilder.append(",macaddr=").append(macAddr)
 			.append(" -net tap,ifname=tap0,script=no,downscript=no");
+	}
+	
+	private void unconfigureBridged(VirtualMachine virtualMachine) throws Exception {
+		String tapIf = "tap-" + virtualMachine.getName(); 
+		Process stopTapProcess = getProcessBuilder(
+				"./qemu-bridge deltap " + tapIf + "; " +
+				"./qemu-bridge ifdown " + tapIf + "; " +
+				"./qemu-bridge delfrombr br0 " + tapIf).start();
+		stopTapProcess.waitFor();
 	}
 
 	private void configureHostOnly(VirtualMachine virtualMachine,
@@ -428,6 +447,12 @@ public class QEmuStrategy implements HypervisorStrategy {
 			kill(virtualMachine);
 		} catch (Exception e) {
 			// Best effort
+		}
+		
+		String netType = virtualMachine
+				.getProperty(VirtualMachineConstants.NETWORK_TYPE);
+		if (netType.equals("bridged")) {
+			unconfigureBridged(virtualMachine);
 		}
 		
 		virtualMachine.setProperty(POWERED_OFF, true);
@@ -730,8 +755,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	private ProcessBuilder getSystemProcessBuilder(String cmd) throws Exception {
-		return getProcessBuilder("qemu-system-i386 " + cmd);
-//		return getProcessBuilder("qemu-system-i386 --nographic " + cmd);
+		return getProcessBuilder("qemu-system-i386 --nographic " + cmd);
 	}
 
 	private ProcessBuilder getImgProcessBuilder(String cmd) throws Exception {
@@ -771,8 +795,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 		Socket s = new Socket("127.0.0.1",
 				(Integer) virtualMachine.getProperty(QMP_PORT));
 		PrintStream ps = new PrintStream(s.getOutputStream());
-//		BufferedReader in = new BufferedReader(
-//				new InputStreamReader(s.getInputStream()));
+		BufferedReader in = new BufferedReader(
+				new InputStreamReader(s.getInputStream()));
 //		
 		ps.println("{\"execute\":\"" + QmpCmd.CAPABILITIES.getCmd() + "\"}");
 		ps.flush();
@@ -782,21 +806,21 @@ public class QEmuStrategy implements HypervisorStrategy {
 		ps.flush();
 		Thread.sleep(QMP_CAPABILITY_WAIT);
 		
-//		StringBuilder sb = new StringBuilder();
-//		
-//		while (in.ready()) {
-//			sb.append(in.readLine());
-//			sb.append("\n");
-//		}
+		StringBuilder sb = new StringBuilder();
 		
-//		String cmdResp = sb.toString().split("\n")[2];
-//		
-//		JsonParser jParser = new JsonParser();
-//		JsonElement response = jParser.parse(cmdResp);
-//		
+		while (in.ready()) {
+			sb.append(in.readLine());
+			sb.append("\n");
+		}
+		
+		String cmdResp = sb.toString().split("\n")[2];
+		
+		JsonParser jParser = new JsonParser();
+		JsonElement response = jParser.parse(cmdResp);
+		
 		s.close();
 		
-		return null;
+		return response;
 	}
 
 	@Override
