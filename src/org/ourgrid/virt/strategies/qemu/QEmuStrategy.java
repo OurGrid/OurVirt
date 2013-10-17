@@ -218,9 +218,9 @@ public class QEmuStrategy implements HypervisorStrategy {
 			StringBuilder strBuilder) throws Exception {
 		String tapIf = "tap-" + virtualMachine.getName(); 
 		Process startTapProcess = getProcessBuilder(
-				"./qemu-bridge mktap " + tapIf + " $USER; " +
-				"./qemu-bridge ifup " + tapIf + "; " +
-				"./qemu-bridge addtobr br0 " + tapIf).start();
+				"qemu-bridge mktap " + tapIf + " $USER; " +
+				"qemu-bridge ifup " + tapIf + "; " +
+				"qemu-bridge addtobr br0 " + tapIf).start();
 		startTapProcess.waitFor();
 		
 		String macAddr = virtualMachine.getProperty(VirtualMachineConstants.MAC);
@@ -231,9 +231,9 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private void unconfigureBridged(VirtualMachine virtualMachine) throws Exception {
 		String tapIf = "tap-" + virtualMachine.getName(); 
 		Process stopTapProcess = getProcessBuilder(
-				"./qemu-bridge deltap " + tapIf + "; " +
-				"./qemu-bridge ifdown " + tapIf + "; " +
-				"./qemu-bridge delfrombr br0 " + tapIf).start();
+				"qemu-bridge deltap " + tapIf + "; " +
+				"qemu-bridge ifdown " + tapIf + "; " +
+				"qemu-bridge delfrombr br0 " + tapIf).start();
 		stopTapProcess.waitFor();
 	}
 
