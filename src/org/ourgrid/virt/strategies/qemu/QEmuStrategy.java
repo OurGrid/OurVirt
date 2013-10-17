@@ -112,19 +112,22 @@ public class QEmuStrategy implements HypervisorStrategy {
 				.getProperty(VirtualMachineConstants.MEMORY);
 
 		StringBuilder strBuilder = new StringBuilder();
-		strBuilder.append("-net nic").append(" -net user");
+		strBuilder.append("-net nic");
 
 		String netType = virtualMachine
 				.getProperty(VirtualMachineConstants.NETWORK_TYPE);
-		if (netType != null && netType.equals("host-only")) {
-			Integer sshPort = randomPort();
-			strBuilder.append(",restrict=yes,hostfwd=tcp:127.0.0.1:").append(
-					sshPort).append("-:22");
-			virtualMachine.setProperty(VirtualMachineConstants.IP, "localhost");
-			virtualMachine.setProperty(VirtualMachineConstants.SSH_PORT,
-					sshPort);
+		if (netType != null) {
+			if (netType.equals("nat")) {
+				configureNat(virtualMachine, strBuilder);
+			} else if (netType.equals("host-only")) {
+				configureHostOnly(virtualMachine, strBuilder);
+			} else if (netType.equals("bridged")) {
+				configureBridged(virtualMachine, strBuilder);
+			} else if (netType.equals("internal")) {
+				configureInternal(virtualMachine, strBuilder);
+			}
 		}
-
+		
 		if (virtualMachine.getProperty(SHARED_FOLDERS) != null) {
 			Integer cifsPort = randomPort();
 			strBuilder.append(",guestfwd=tcp:").append(CIFS_DEVICE).append(":")
@@ -200,6 +203,35 @@ public class QEmuStrategy implements HypervisorStrategy {
 		}
 		
 		checkOSStarted(virtualMachine);
+	}
+
+	private void configureInternal(VirtualMachine virtualMachine,
+			StringBuilder strBuilder) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	private void configureBridged(VirtualMachine virtualMachine,
+			StringBuilder strBuilder) {
+		String macAddr = virtualMachine.getProperty(VirtualMachineConstants.MAC);
+		strBuilder.append(",macaddr=").append(macAddr)
+			.append(" -net tap,ifname=tap0,script=no,downscript=no");
+	}
+
+	private void configureHostOnly(VirtualMachine virtualMachine,
+			StringBuilder strBuilder) {
+		Integer sshPort = randomPort();
+		strBuilder.append(" -net user");
+		strBuilder.append(",restrict=yes,hostfwd=tcp:127.0.0.1:").append(
+				sshPort).append("-:22");
+		virtualMachine.setProperty(VirtualMachineConstants.IP, "localhost");
+		virtualMachine.setProperty(VirtualMachineConstants.SSH_PORT,
+				sshPort);
+	}
+
+	private void configureNat(VirtualMachine virtualMachine,
+			StringBuilder strBuilder) {
+		strBuilder.append(" -net user");
 	}
 
 	private void startQEmuProcess(final VirtualMachine virtualMachine,
@@ -698,7 +730,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	private ProcessBuilder getSystemProcessBuilder(String cmd) throws Exception {
-		return getProcessBuilder("qemu-system-i386 --nographic " + cmd);
+		return getProcessBuilder("qemu-system-i386 " + cmd);
+//		return getProcessBuilder("qemu-system-i386 --nographic " + cmd);
 	}
 
 	private ProcessBuilder getImgProcessBuilder(String cmd) throws Exception {
