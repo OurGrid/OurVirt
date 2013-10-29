@@ -4,7 +4,6 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.ServerSocket;
@@ -46,10 +45,9 @@ import com.google.gson.JsonParser;
 public class QEmuStrategy implements HypervisorStrategy {
 
 	private static final int AUTHSSH_RETRIES = 5;
-
 	private static final int RANDOM_PORT_RETRIES = 5;
 
-	private static final int QMP_CAPABILITY_WAIT = 5000;
+	private static final int QMP_CAPABILITY_WAIT =3000;
 
 	private static final Logger LOGGER = Logger.getLogger(QEmuStrategy.class);
 
@@ -60,6 +58,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final String CIFS_SERVER = "CIFS_SERVER";
 	private static final String HDA_FILE = "HDA_FILE";
 	private static final String SHARED_FOLDERS = "SHARED_FOLDERS";
+	private static final String CURRENT_DEVICE_IDX = "CURRENT_DEVICE_IDX";
 	
 	private static final String CIFS_DEVICE = "10.0.2.100";
 	private static final String CIFS_PORT_GUEST = "9999";
@@ -147,6 +146,12 @@ public class QEmuStrategy implements HypervisorStrategy {
 				.append(",server,nowait,nodelay")
 				.append(" -monitor stdio");
 		virtualMachine.setProperty(QMP_PORT, qmpPort);
+		
+		String useUSBHub = virtualMachine
+				.getProperty(VirtualMachineConstants.USE_USB_HUB);
+		if (useUSBHub != null && Boolean.getBoolean(useUSBHub)) {
+			strBuilder.append(" -device piix3-usb-uhci,id=usb");
+		}
 		
 		File pidFile = getPidFile(virtualMachine);
 		strBuilder.append(" -pidfile \"").append(pidFile.getAbsolutePath()).append("\"");
@@ -806,7 +811,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		PrintStream ps = new PrintStream(s.getOutputStream());
 		BufferedReader in = new BufferedReader(
 				new InputStreamReader(s.getInputStream()));
-//		
+		
 		ps.println("{\"execute\":\"" + QmpCmd.CAPABILITIES.getCmd() + "\"}");
 		ps.flush();
 		Thread.sleep(QMP_CAPABILITY_WAIT);
@@ -830,6 +835,12 @@ public class QEmuStrategy implements HypervisorStrategy {
 		s.close();
 		
 		return response;
+	}
+	
+	private void runMonitorCommand(VirtualMachine registeredVM, String command) throws Exception {
+		Process process = registeredVM.getProperty(PROCESS);
+		IOUtils.write(command + "\n", process.getOutputStream());
+		Thread.sleep(QMP_CAPABILITY_WAIT);
 	}
 
 	@Override
@@ -869,9 +880,20 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public void attachDevice(VirtualMachine registeredVM, String devName) throws Exception {
-		Process process = registeredVM.getProperty(PROCESS);
-		InputStream inputStream = process.getInputStream();
-		System.out.println(inputStream);
+	public String attachDevice(VirtualMachine registeredVM, String devicePath) throws Exception {
+		Integer currentDeviceIdx = registeredVM.getProperty(CURRENT_DEVICE_IDX);
+		currentDeviceIdx = currentDeviceIdx == null ? 0 : currentDeviceIdx + 1;
+		registeredVM.setProperty(CURRENT_DEVICE_IDX, currentDeviceIdx);
+		
+		String driveId = "drive-scsi0-0-0-" + currentDeviceIdx;
+		String deviceId = "scsi0-0-0-" + currentDeviceIdx;
+		
+		runMonitorCommand(registeredVM, "drive_add 0 file=" + devicePath + ",if=none,id=" + driveId);
+		runMonitorCommand(registeredVM, "device_add usb-storage,bus=usb.0,drive=" + driveId + ",id=" + deviceId);
+		
+		char deviceIdx = (char) ('b' + currentDeviceIdx);
+		
+		return "/dev/sd" + deviceIdx;
 	}
+	
 }

@@ -205,8 +205,14 @@ public interface HypervisorStrategy {
 	void setProperty(VirtualMachine registeredVM, String propertyName,
 			Object propertyValue) throws Exception;
 
-	public List<DiskStats> getDiskStats(VirtualMachine registeredVM) throws Exception;
+	List<DiskStats> getDiskStats(VirtualMachine registeredVM) throws Exception;
 	
-	void attachDevice(VirtualMachine registeredVM, String devName) throws Exception;
-
+	/**
+	 * @param registeredVM
+	 * @param devicePathInHost
+	 * @return Device path in guest
+	 * @throws Exception
+	 */
+	String attachDevice(VirtualMachine registeredVM, String devicePathInHost) throws Exception;
+	
 }
