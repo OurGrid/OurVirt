@@ -539,4 +539,10 @@ public class VServerStrategy implements HypervisorStrategy {
 		return null;
 	}
 
+	@Override
+	public void attachDevice(VirtualMachine registeredVM, String devName) {
+		// TODO Auto-generated method stub
+		
+	}
+
 }

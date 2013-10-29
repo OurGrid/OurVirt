@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.net.ServerSocket;
@@ -143,7 +144,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 		strBuilder.append(" -nodefconfig");
 		Integer qmpPort = randomPort();
 		strBuilder.append(" -qmp tcp:127.0.0.1:").append(qmpPort)
-				.append(",server,nowait,nodelay");
+				.append(",server,nowait,nodelay")
+				.append(" -monitor stdio");
 		virtualMachine.setProperty(QMP_PORT, qmpPort);
 		
 		File pidFile = getPidFile(virtualMachine);
@@ -163,7 +165,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 		
 		if (checkKVM()) {
-			strBuilder.append(" -enable-kvm");
+			strBuilder.append(" -enable-kvm"); 
 		}
 
 		try {
@@ -213,28 +215,35 @@ public class QEmuStrategy implements HypervisorStrategy {
 		// TODO Auto-generated method stub
 		
 	}
-
+	
+	private void execAndWait(String cmd) throws Exception {
+		getProcessBuilder(cmd).start().waitFor();
+	}
+	
 	private void configureBridged(VirtualMachine virtualMachine,
 			StringBuilder strBuilder) throws Exception {
-		String tapIf = "tap-" + virtualMachine.getName(); 
-		Process startTapProcess = getProcessBuilder(
-				"qemu-bridge mktap " + tapIf + " $USER; " +
-				"qemu-bridge ifup " + tapIf + "; " +
-				"qemu-bridge addtobr br0 " + tapIf).start();
-		startTapProcess.waitFor();
+		String tapIf = "tap-" + virtualMachine.getName();
+		String brName = virtualMachine.getProperty(
+				VirtualMachineConstants.BRIDGED_INTERFACE);
 		
+		String userName = System.getProperty("user.name");
+		execAndWait("qemu-bridge mktap " + tapIf + " " + userName);
+		execAndWait("qemu-bridge addtobr " + brName + " " + tapIf);
+		execAndWait("qemu-bridge ifup " + tapIf);
+
 		String macAddr = virtualMachine.getProperty(VirtualMachineConstants.MAC);
 		strBuilder.append(",macaddr=").append(macAddr)
-			.append(" -net tap,ifname=tap0,script=no,downscript=no");
+			.append(" -net tap,ifname=").append(tapIf).append(",script=no,downscript=no");
 	}
 	
 	private void unconfigureBridged(VirtualMachine virtualMachine) throws Exception {
-		String tapIf = "tap-" + virtualMachine.getName(); 
-		Process stopTapProcess = getProcessBuilder(
-				"qemu-bridge deltap " + tapIf + "; " +
-				"qemu-bridge ifdown " + tapIf + "; " +
-				"qemu-bridge delfrombr br0 " + tapIf).start();
-		stopTapProcess.waitFor();
+		String tapIf = "tap-" + virtualMachine.getName();
+		String brName = virtualMachine.getProperty(
+				VirtualMachineConstants.BRIDGED_INTERFACE);
+		
+		execAndWait("qemu-bridge ifdown " + tapIf);
+		execAndWait("qemu-bridge delfrombr " + brName + " " + tapIf);
+		execAndWait("qemu-bridge deltap " + tapIf);
 	}
 
 	private void configureHostOnly(VirtualMachine virtualMachine,
@@ -857,5 +866,12 @@ public class QEmuStrategy implements HypervisorStrategy {
 		}
 		
 		return disksStats;
+	}
+
+	@Override
+	public void attachDevice(VirtualMachine registeredVM, String devName) throws Exception {
+		Process process = registeredVM.getProperty(PROCESS);
+		InputStream inputStream = process.getInputStream();
+		System.out.println(inputStream);
 	}
 }

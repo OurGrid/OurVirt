@@ -724,5 +724,11 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
+	@Override
+	public void attachDevice(VirtualMachine registeredVM, String devName) {
+		// TODO Auto-generated method stub
+		
+	}
 	
 }

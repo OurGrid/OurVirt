@@ -206,5 +206,7 @@ public interface HypervisorStrategy {
 			Object propertyValue) throws Exception;
 
 	public List<DiskStats> getDiskStats(VirtualMachine registeredVM) throws Exception;
+	
+	void attachDevice(VirtualMachine registeredVM, String devName) throws Exception;
 
 }
