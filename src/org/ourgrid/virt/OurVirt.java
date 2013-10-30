@@ -330,8 +330,12 @@ public class OurVirt {
 		return factory.get(hypervisor).getDiskStats(getRegisteredVM(vmName));
 	}
 	
-	public void attachDevice(HypervisorType hypervisor, String vmName, String devName) throws Exception {
-		factory.get(hypervisor).attachDevice(getRegisteredVM(vmName), devName);
+	public void attachDevice(HypervisorType hypervisor, String vmName, String localDevicePath) throws Exception {
+		factory.get(hypervisor).attachDevice(getRegisteredVM(vmName), localDevicePath);
+	}
+	
+	public void detachDevice(HypervisorType hypervisor, String vmName, String localDevicePath) throws Exception {
+		factory.get(hypervisor).detachDevice(getRegisteredVM(vmName), localDevicePath);
 	}
 	
 	public void clone(HypervisorType hypervisor, String sourceDevice, String destDevice) throws Exception {
