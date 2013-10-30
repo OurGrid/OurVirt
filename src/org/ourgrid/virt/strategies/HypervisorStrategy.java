@@ -214,5 +214,7 @@ public interface HypervisorStrategy {
 	 * @throws Exception
 	 */
 	String attachDevice(VirtualMachine registeredVM, String devicePathInHost) throws Exception;
+
+	void detachDevice(VirtualMachine registeredVM, String hostDevicePath) throws Exception;
 	
 }

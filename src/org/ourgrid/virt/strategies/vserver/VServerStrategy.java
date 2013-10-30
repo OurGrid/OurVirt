@@ -544,4 +544,11 @@ public class VServerStrategy implements HypervisorStrategy {
 		return null;
 	}
 
+	@Override
+	public void detachDevice(VirtualMachine registeredVM, String hostDevicePath)
+			throws Exception {
+		// TODO Auto-generated method stub
+		
+	}
+
 }

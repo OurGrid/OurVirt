@@ -60,6 +60,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final String HDA_FILE = "HDA_FILE";
 	private static final String SHARED_FOLDERS = "SHARED_FOLDERS";
 	private static final String CURRENT_DEVICE_IDX = "CURRENT_DEVICE_IDX";
+	private static final String DEVICES_ATTACHED = "DEVICES_ATTACHED";
 	
 	private static final String CIFS_DEVICE = "10.0.2.100";
 	private static final String CIFS_PORT_GUEST = "9999";
@@ -910,7 +911,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	@Override
-	public String attachDevice(VirtualMachine registeredVM, String devicePath) throws Exception {
+	public String attachDevice(VirtualMachine registeredVM, String hostDevicePath) throws Exception {
 		Integer currentDeviceIdx = registeredVM.getProperty(CURRENT_DEVICE_IDX);
 		currentDeviceIdx = currentDeviceIdx == null ? 0 : currentDeviceIdx + 1;
 		registeredVM.setProperty(CURRENT_DEVICE_IDX, currentDeviceIdx);
@@ -918,12 +919,32 @@ public class QEmuStrategy implements HypervisorStrategy {
 		String driveId = "drive-scsi0-0-0-" + currentDeviceIdx;
 		String deviceId = "scsi0-0-0-" + currentDeviceIdx;
 		
-		runMonitorCommandViaQMP(registeredVM, "drive_add 0 file=" + devicePath + ",if=none,id=" + driveId);
+		runMonitorCommandViaQMP(registeredVM, "drive_add 0 file=" + hostDevicePath + ",if=none,id=" + driveId);
 		runMonitorCommandViaQMP(registeredVM, "device_add usb-storage,bus=usb.0,drive=" + driveId + ",id=" + deviceId);
+		
+		Map<String, String> devicesAttached = registeredVM.getProperty(DEVICES_ATTACHED);
+		if (devicesAttached == null) {
+			devicesAttached = new HashMap<String, String>();
+			registeredVM.setProperty(DEVICES_ATTACHED, devicesAttached);
+		}
+		devicesAttached.put(hostDevicePath, deviceId);
 		
 		char deviceIdx = (char) ('b' + currentDeviceIdx);
 		
 		return "/dev/sd" + deviceIdx;
+	}
+	
+	@Override
+	public void detachDevice(VirtualMachine registeredVM, String hostDevicePath) throws Exception {
+		Map<String, String> devicesAttached = registeredVM.getProperty(DEVICES_ATTACHED);
+		if (devicesAttached == null) {
+			return;
+		}
+		String deviceId = devicesAttached.get(hostDevicePath);
+		if (deviceId == null) {
+			return;
+		}
+		runMonitorCommandViaQMP(registeredVM, "device_del " + deviceId);
 	}
 	
 }
