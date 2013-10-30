@@ -44,4 +44,6 @@ public class VirtualMachineConstants {
 	public static final String BRIDGED_NET_MODE = "bridged";
 
 	public static final String USE_USB_HUB = "use.usb";
+
+	public static final String USE_MONITOR = "use.monitor";
 }

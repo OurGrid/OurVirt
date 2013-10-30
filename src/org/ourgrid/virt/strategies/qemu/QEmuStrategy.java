@@ -3,6 +3,7 @@ package org.ourgrid.virt.strategies.qemu;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
@@ -143,14 +144,21 @@ public class QEmuStrategy implements HypervisorStrategy {
 		strBuilder.append(" -nodefconfig");
 		Integer qmpPort = randomPort();
 		strBuilder.append(" -qmp tcp:127.0.0.1:").append(qmpPort)
-				.append(",server,nowait,nodelay")
-				.append(" -monitor stdio");
+				.append(",server,nowait,nodelay");
 		virtualMachine.setProperty(QMP_PORT, qmpPort);
 		
 		String useUSBHub = virtualMachine
 				.getProperty(VirtualMachineConstants.USE_USB_HUB);
 		if (useUSBHub != null && Boolean.getBoolean(useUSBHub)) {
 			strBuilder.append(" -device piix3-usb-uhci,id=usb");
+		}
+		
+		String useMonitor = virtualMachine
+				.getProperty(VirtualMachineConstants.USE_MONITOR);
+		if (useMonitor != null && Boolean.getBoolean(useMonitor)) {
+			File monitorFile = getMonitorFile(virtualMachine);
+			strBuilder.append(" -chardev socket,id=monitor,path=" + monitorFile.getAbsolutePath() 
+					+ ",server,nowait -monitor chardev:monitor");
 		}
 		
 		File pidFile = getPidFile(virtualMachine);
@@ -488,6 +496,11 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private File getPidFile(final VirtualMachine virtualMachine) {
 		String temp = System.getProperty("java.io.tmpdir");
 		return new File(new File(temp), "qemu-" + virtualMachine.getName() + ".pid");
+	}
+	
+	private File getMonitorFile(final VirtualMachine virtualMachine) {
+		String temp = System.getProperty("java.io.tmpdir");
+		return new File(new File(temp), "qemu-" + virtualMachine.getName() + ".monitor");
 	}
 	
 	private String getPid(VirtualMachine virtualMachine) {
@@ -838,9 +851,11 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 	
 	private void runMonitorCommand(VirtualMachine registeredVM, String command) throws Exception {
-		Process process = registeredVM.getProperty(PROCESS);
-		IOUtils.write(command + "\n", process.getOutputStream());
+		FileOutputStream fos = new FileOutputStream(getMonitorFile(registeredVM));
+		IOUtils.write(command + "\n", fos);
+		fos.flush();
 		Thread.sleep(QMP_CAPABILITY_WAIT);
+		fos.close();
 	}
 
 	@Override
