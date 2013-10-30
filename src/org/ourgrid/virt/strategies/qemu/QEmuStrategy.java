@@ -837,7 +837,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 		if (arguments == null) {
 			ps.println("{\"execute\":\"" + command + "\"}");
 		} else {
-			ps.println("{\"execute\":\"" + command + "\", \"arguments\":\"" + arguments + "\"}");
+			String jsonCommand = "{\"execute\":\"" + command + "\", \"arguments\":" + arguments + "}";
+			ps.println(jsonCommand);
 		}
 		
 		ps.flush();
