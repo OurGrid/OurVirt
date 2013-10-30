@@ -149,16 +149,16 @@ public class QEmuStrategy implements HypervisorStrategy {
 		
 		String useUSBHub = virtualMachine
 				.getProperty(VirtualMachineConstants.USE_USB_HUB);
-		if (useUSBHub != null && Boolean.getBoolean(useUSBHub)) {
+		if (useUSBHub != null && Boolean.parseBoolean(useUSBHub)) {
 			strBuilder.append(" -device piix3-usb-uhci,id=usb");
 		}
 		
 		String useMonitor = virtualMachine
 				.getProperty(VirtualMachineConstants.USE_MONITOR);
-		if (useMonitor != null && Boolean.getBoolean(useMonitor)) {
+		if (useMonitor != null && Boolean.parseBoolean(useMonitor)) {
 			File monitorFile = getMonitorFile(virtualMachine);
-			strBuilder.append(" -chardev socket,id=monitor,path=" + monitorFile.getAbsolutePath() 
-					+ ",server,nowait -monitor chardev:monitor");
+			strBuilder.append(" -chardev socket,id=charmonitor,path=" + monitorFile.getAbsolutePath() 
+					+ ",server,nowait -mon chardev=charmonitor,id=monitor,mode=control");
 		}
 		
 		File pidFile = getPidFile(virtualMachine);
@@ -817,8 +817,12 @@ public class QEmuStrategy implements HypervisorStrategy {
 		checkOSStarted(virtualMachine);
 	}
 	
+	private JsonElement runQMPCommand(VirtualMachine virtualMachine, String command) throws Exception {
+		return runQMPCommand(virtualMachine, command, null);
+	}
+	
 	private JsonElement runQMPCommand(VirtualMachine virtualMachine,
-			String command) throws Exception {
+			String command, String arguments) throws Exception {
 		Socket s = new Socket("127.0.0.1",
 				(Integer) virtualMachine.getProperty(QMP_PORT));
 		PrintStream ps = new PrintStream(s.getOutputStream());
@@ -829,7 +833,12 @@ public class QEmuStrategy implements HypervisorStrategy {
 		ps.flush();
 		Thread.sleep(QMP_CAPABILITY_WAIT);
 		
-		ps.println("{\"execute\":\"" + command + "\"}");
+		if (arguments == null) {
+			ps.println("{\"execute\":\"" + command + "\"}");
+		} else {
+			ps.println("{\"execute\":\"" + command + "\", \"arguments\":\"" + arguments + "\"}");
+		}
+		
 		ps.flush();
 		Thread.sleep(QMP_CAPABILITY_WAIT);
 		
@@ -850,6 +859,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		return response;
 	}
 	
+	@SuppressWarnings("unused")
 	private void runMonitorCommand(VirtualMachine registeredVM, String command) throws Exception {
 		FileOutputStream fos = new FileOutputStream(getMonitorFile(registeredVM));
 		IOUtils.write(command + "\n", fos);
@@ -858,6 +868,11 @@ public class QEmuStrategy implements HypervisorStrategy {
 		fos.close();
 	}
 
+	private void runMonitorCommandViaQMP(VirtualMachine registeredVM, String command) throws Exception {
+		String args = "{ \"command-line\": \"" + command + "\" }";
+		runQMPCommand(registeredVM, "human-monitor-command", args);
+	}
+	
 	@Override
 	public CPUStats getCPUStats(VirtualMachine virtualMachine) throws Exception {
 		return HypervisorUtils.getCPUStats(getPid(virtualMachine));
@@ -903,8 +918,8 @@ public class QEmuStrategy implements HypervisorStrategy {
 		String driveId = "drive-scsi0-0-0-" + currentDeviceIdx;
 		String deviceId = "scsi0-0-0-" + currentDeviceIdx;
 		
-		runMonitorCommand(registeredVM, "drive_add 0 file=" + devicePath + ",if=none,id=" + driveId);
-		runMonitorCommand(registeredVM, "device_add usb-storage,bus=usb.0,drive=" + driveId + ",id=" + deviceId);
+		runMonitorCommandViaQMP(registeredVM, "drive_add 0 file=" + devicePath + ",if=none,id=" + driveId);
+		runMonitorCommandViaQMP(registeredVM, "device_add usb-storage,bus=usb.0,drive=" + driveId + ",id=" + deviceId);
 		
 		char deviceIdx = (char) ('b' + currentDeviceIdx);
 		
