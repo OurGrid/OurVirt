@@ -165,6 +165,13 @@ public class QEmuStrategy implements HypervisorStrategy {
 		File pidFile = getPidFile(virtualMachine);
 		strBuilder.append(" -pidfile \"").append(pidFile.getAbsolutePath()).append("\"");
 		
+		String useConsoleOutputFile = virtualMachine
+				.getProperty(VirtualMachineConstants.USE_CONSOLE_OUTPUT_FILE);
+		if (useConsoleOutputFile != null && Boolean.parseBoolean(useConsoleOutputFile)) {
+			File serialFile = getConsoleOutputFile(virtualMachine);
+			strBuilder.append(" -serial file:").append(serialFile.getAbsolutePath());
+		}
+		
 		String snapshot = virtualMachine.getProperty(RESTORE_SNAPSHOT);
 		String snapshotLocation = getSnapshotLocation(virtualMachine,
 				CURRENT_SNAPSHOT);
@@ -502,6 +509,11 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private File getMonitorFile(final VirtualMachine virtualMachine) {
 		String temp = System.getProperty("java.io.tmpdir");
 		return new File(new File(temp), "qemu-" + virtualMachine.getName() + ".monitor");
+	}
+	
+	private File getConsoleOutputFile(final VirtualMachine virtualMachine) {
+		String temp = System.getProperty("java.io.tmpdir");
+		return new File(new File(temp), "qemu-" + virtualMachine.getName() + "-console.log");
 	}
 	
 	private String getPid(VirtualMachine virtualMachine) {
@@ -946,6 +958,12 @@ public class QEmuStrategy implements HypervisorStrategy {
 			return;
 		}
 		runMonitorCommandViaQMP(registeredVM, "device_del " + deviceId);
+	}
+
+	@Override
+	public String getConsoleOuput(VirtualMachine registeredVM) throws IOException {
+		File consoleOutputFile = getConsoleOutputFile(registeredVM);
+		return IOUtils.toString(new FileInputStream(consoleOutputFile));
 	}
 	
 }

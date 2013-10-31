@@ -342,6 +342,10 @@ public class OurVirt {
 		factory.get(hypervisor).clone(sourceDevice, destDevice);
 	}
 	
+	public String getConsoleOutput(HypervisorType hypervisor, String vmName) throws Exception {
+		return factory.get(hypervisor).getConsoleOuput(getRegisteredVM(vmName));
+	}
+	
 	public Object getProperty(HypervisorType hypervisor, String vmName, 
 			String propertyName) throws Exception {
 		return factory.get(hypervisor).getProperty(getRegisteredVM(vmName), propertyName);

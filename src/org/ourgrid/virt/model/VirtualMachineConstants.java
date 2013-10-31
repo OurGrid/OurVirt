@@ -46,4 +46,6 @@ public class VirtualMachineConstants {
 	public static final String USE_USB_HUB = "use.usb";
 
 	public static final String USE_MONITOR = "use.monitor";
+
+	public static final String USE_CONSOLE_OUTPUT_FILE = "use.consoleoutputfile";
 }

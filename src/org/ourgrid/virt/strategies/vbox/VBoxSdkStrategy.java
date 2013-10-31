@@ -736,5 +736,11 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 		// TODO Auto-generated method stub
 		
 	}
+
+	@Override
+	public String getConsoleOuput(VirtualMachine registeredVM) {
+		// TODO Auto-generated method stub
+		return null;
+	}
 	
 }

@@ -1,5 +1,6 @@
 package org.ourgrid.virt.strategies;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -216,5 +217,7 @@ public interface HypervisorStrategy {
 	String attachDevice(VirtualMachine registeredVM, String devicePathInHost) throws Exception;
 
 	void detachDevice(VirtualMachine registeredVM, String hostDevicePath) throws Exception;
+
+	public String getConsoleOuput(VirtualMachine registeredVM) throws IOException;
 	
 }
