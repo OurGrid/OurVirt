@@ -11,6 +11,7 @@ import java.util.Map;
 import org.ourgrid.virt.model.CPUStats;
 import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
+import org.ourgrid.virt.model.NetworkStats;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
 import org.ourgrid.virt.model.VirtualMachineStatus;
@@ -555,6 +556,12 @@ public class VServerStrategy implements HypervisorStrategy {
 	public String getConsoleOuput(VirtualMachine registeredVM) {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	@Override
+	public NetworkStats getNetworkStats(VirtualMachine registeredVM) throws Exception {
+		String ifName = registeredVM.getProperty(VirtualMachineConstants.BRIDGED_INTERFACE);
+		return HypervisorUtils.getNetworkStats(registeredVM, ifName);
 	}
 
 }

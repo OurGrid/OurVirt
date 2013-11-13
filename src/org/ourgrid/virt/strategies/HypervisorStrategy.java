@@ -7,6 +7,7 @@ import java.util.Map;
 import org.ourgrid.virt.model.CPUStats;
 import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
+import org.ourgrid.virt.model.NetworkStats;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineStatus;
 
@@ -207,6 +208,8 @@ public interface HypervisorStrategy {
 			Object propertyValue) throws Exception;
 
 	List<DiskStats> getDiskStats(VirtualMachine registeredVM) throws Exception;
+	
+	NetworkStats getNetworkStats(VirtualMachine registeredVM) throws Exception;
 	
 	/**
 	 * @param registeredVM

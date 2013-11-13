@@ -12,7 +12,6 @@ import org.ourgrid.virt.model.NetworkStats;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorStrategyFactory;
-import org.ourgrid.virt.strategies.HypervisorUtils;
 
 
 /**
@@ -316,7 +315,7 @@ public class OurVirt {
 	 * the specified virtual machine process.
 	 */
 	public NetworkStats getNetworkStats(HypervisorType hypervisor, String vmName) throws Exception {
-		return HypervisorUtils.getNetworkStats(getRegisteredVM(vmName));
+		return factory.get(hypervisor).getNetworkStats(getRegisteredVM(vmName));
 	}
 	
 	/**

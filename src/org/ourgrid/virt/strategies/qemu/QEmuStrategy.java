@@ -31,6 +31,7 @@ import org.apache.log4j.Logger;
 import org.ourgrid.virt.model.CPUStats;
 import org.ourgrid.virt.model.DiskStats;
 import org.ourgrid.virt.model.ExecutionResult;
+import org.ourgrid.virt.model.NetworkStats;
 import org.ourgrid.virt.model.SharedFolder;
 import org.ourgrid.virt.model.VirtualMachine;
 import org.ourgrid.virt.model.VirtualMachineConstants;
@@ -966,4 +967,13 @@ public class QEmuStrategy implements HypervisorStrategy {
 		return IOUtils.toString(new FileInputStream(consoleOutputFile));
 	}
 	
+	@Override
+	public NetworkStats getNetworkStats(VirtualMachine registeredVM) throws Exception {
+		String ifName = getTapName(registeredVM);
+		return HypervisorUtils.getNetworkStats(registeredVM, ifName);
+	}
+
+	private String getTapName(VirtualMachine registeredVM) {
+		return "tap-" + registeredVM.getName();
+	}
 }
