@@ -264,9 +264,9 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 
 	private synchronized void configureBridgedOnWindows(String tapIf, String brName) throws Exception {
-		execAndWait("devcon.exe install hwids tap0901");
+		execAndWait("devcon.exe hwids tap0901");
 		execAndWait("devcon.exe install driver\\OemWin2k.inf tap0901");
-		execAndWait("devcon.exe install hwids tap0901"); //TODO What's new? Rename!
+		execAndWait("devcon.exe hwids tap0901"); //TODO What's new? Rename!
 		String tapDevId = null;
 		execAndWait("rentap.bat " + tapDevId + " " + tapIf);
 		execAndWait("bindbridge " + tapDevId + " bind");
