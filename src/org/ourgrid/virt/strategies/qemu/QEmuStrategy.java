@@ -266,7 +266,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	private synchronized void configureBridgedOnWindows(VirtualMachine vm, String tapIf, String brName) throws Exception {
 		String tapDevId = DevConUtils.installTap(vm);
-		execAndWait("rentap.bat " + tapDevId + " " + tapIf);
+		execAndWait("rentap.bat " + tapDevId.replace("\\", "\\\\") + " " + tapIf);
 		execAndWait("bindbridge " + brName + " " + tapDevId + " bind");
 		vm.setProperty(TAP_WINDOWS_DEV, tapDevId);
 	}
