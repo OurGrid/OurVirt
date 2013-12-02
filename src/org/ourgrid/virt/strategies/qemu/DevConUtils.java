@@ -42,7 +42,7 @@ public class DevConUtils {
 
 	private static List<String> runDevCon(VirtualMachine vm, String command) throws Exception {
 		String tapWinDir = vm.getProperty(VirtualMachineConstants.TAP_WINDOWS_DIR);
-		ProcessBuilder processBuilder = new ProcessBuilder("cmd", "/C devcon " + command);
+		ProcessBuilder processBuilder = new ProcessBuilder("cmd", "/C bin\\devcon.exe " + command);
 		processBuilder.directory(new File(tapWinDir));
 		
 		Process process = processBuilder.start();
