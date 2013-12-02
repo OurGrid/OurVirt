@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import javax.naming.OperationNotSupportedException;
+
 import net.schmizz.sshj.SSHClient;
 import net.schmizz.sshj.connection.channel.direct.Session;
 import net.schmizz.sshj.connection.channel.direct.Session.Command;
@@ -248,14 +250,34 @@ public class QEmuStrategy implements HypervisorStrategy {
 		String brName = virtualMachine.getProperty(
 				VirtualMachineConstants.BRIDGED_INTERFACE);
 		
-		String userName = System.getProperty("user.name");
-		execAndWait("qemu-bridge mktap " + tapIf + " " + userName);
-		execAndWait("qemu-bridge addtobr " + brName + " " + tapIf);
-		execAndWait("qemu-bridge ifup " + tapIf);
+		if (HypervisorUtils.isLinuxHost()) {
+			configureBridgedOnUnix(tapIf, brName);
+		} else if (HypervisorUtils.isMacOSHost()) {
+			configureBridgedOnWindows(tapIf, brName);
+		} else {
+			throw new OperationNotSupportedException();
+		}
 
 		String macAddr = virtualMachine.getProperty(VirtualMachineConstants.MAC);
 		strBuilder.append(",macaddr=").append(macAddr)
 			.append(" -net tap,ifname=").append(tapIf).append(",script=no,downscript=no");
+	}
+
+	private synchronized void configureBridgedOnWindows(String tapIf, String brName) throws Exception {
+		execAndWait("devcon.exe install hwids tap0901");
+		execAndWait("devcon.exe install driver\\OemWin2k.inf tap0901");
+		execAndWait("devcon.exe install hwids tap0901"); //TODO What's new? Rename!
+		String tapDevId = null;
+		execAndWait("rentap.bat " + tapDevId + " " + tapIf);
+		execAndWait("bindbridge " + tapDevId + " bind");
+	}
+
+	private void configureBridgedOnUnix(String tapIf, String brName)
+			throws Exception {
+		String userName = System.getProperty("user.name");
+		execAndWait("qemu-bridge mktap " + tapIf + " " + userName);
+		execAndWait("qemu-bridge addtobr " + brName + " " + tapIf);
+		execAndWait("qemu-bridge ifup " + tapIf);
 	}
 	
 	private void unconfigureBridged(VirtualMachine virtualMachine) throws Exception {
@@ -263,6 +285,20 @@ public class QEmuStrategy implements HypervisorStrategy {
 		String brName = virtualMachine.getProperty(
 				VirtualMachineConstants.BRIDGED_INTERFACE);
 		
+		if (HypervisorUtils.isLinuxHost()) {
+			unconfigureBridgedOnUnix(tapIf, brName);
+		} else if (HypervisorUtils.isWindowsHost()) {
+			unconfigureBridgedOnWindows(tapIf, brName);
+		}
+	}
+
+	private void unconfigureBridgedOnWindows(String tapIf, String brName) throws Exception {
+		String tapDevId = null; //TODO Infer dev id
+		execAndWait("devcon.exe remove @'" + tapDevId);
+	}
+
+	private void unconfigureBridgedOnUnix(String tapIf, String brName)
+			throws Exception {
 		execAndWait("qemu-bridge ifdown " + tapIf);
 		execAndWait("qemu-bridge delfrombr " + brName + " " + tapIf);
 		execAndWait("qemu-bridge deltap " + tapIf);
