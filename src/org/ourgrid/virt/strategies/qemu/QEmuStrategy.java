@@ -64,6 +64,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 	private static final String SHARED_FOLDERS = "SHARED_FOLDERS";
 	private static final String CURRENT_DEVICE_IDX = "CURRENT_DEVICE_IDX";
 	private static final String DEVICES_ATTACHED = "DEVICES_ATTACHED";
+	private static final String TAP_WINDOWS_DEV = "TAP_WINDOWS_DEV";
 	
 	private static final String CIFS_DEVICE = "10.0.2.100";
 	private static final String CIFS_PORT_GUEST = "9999";
@@ -253,7 +254,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		if (HypervisorUtils.isLinuxHost()) {
 			configureBridgedOnUnix(tapIf, brName);
 		} else if (HypervisorUtils.isMacOSHost()) {
-			configureBridgedOnWindows(tapIf, brName);
+			configureBridgedOnWindows(virtualMachine, tapIf, brName);
 		} else {
 			throw new OperationNotSupportedException();
 		}
@@ -263,13 +264,11 @@ public class QEmuStrategy implements HypervisorStrategy {
 			.append(" -net tap,ifname=").append(tapIf).append(",script=no,downscript=no");
 	}
 
-	private synchronized void configureBridgedOnWindows(String tapIf, String brName) throws Exception {
-		execAndWait("devcon.exe hwids tap0901");
-		execAndWait("devcon.exe install driver\\OemWin2k.inf tap0901");
-		execAndWait("devcon.exe hwids tap0901"); //TODO What's new? Rename!
-		String tapDevId = null;
+	private synchronized void configureBridgedOnWindows(VirtualMachine vm, String tapIf, String brName) throws Exception {
+		String tapDevId = DevConUtils.installTap(vm);
 		execAndWait("rentap.bat " + tapDevId + " " + tapIf);
-		execAndWait("bindbridge " + tapDevId + " bind");
+		execAndWait("bindbridge " + brName + " " + tapDevId + " bind");
+		vm.setProperty(TAP_WINDOWS_DEV, tapDevId);
 	}
 
 	private void configureBridgedOnUnix(String tapIf, String brName)
@@ -281,20 +280,19 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 	
 	private void unconfigureBridged(VirtualMachine virtualMachine) throws Exception {
-		String tapIf = "tap-" + virtualMachine.getName();
-		String brName = virtualMachine.getProperty(
-				VirtualMachineConstants.BRIDGED_INTERFACE);
-		
 		if (HypervisorUtils.isLinuxHost()) {
+			String tapIf = "tap-" + virtualMachine.getName();
+			String brName = virtualMachine.getProperty(
+					VirtualMachineConstants.BRIDGED_INTERFACE);
 			unconfigureBridgedOnUnix(tapIf, brName);
 		} else if (HypervisorUtils.isWindowsHost()) {
-			unconfigureBridgedOnWindows(tapIf, brName);
+			unconfigureBridgedOnWindows(virtualMachine);
 		}
 	}
 
-	private void unconfigureBridgedOnWindows(String tapIf, String brName) throws Exception {
-		String tapDevId = null; //TODO Infer dev id
-		execAndWait("devcon.exe remove @'" + tapDevId);
+	private void unconfigureBridgedOnWindows(VirtualMachine vm) throws Exception {
+		String tapDevId = vm.getProperty(TAP_WINDOWS_DEV);
+		DevConUtils.uninstallTap(vm, tapDevId);
 	}
 
 	private void unconfigureBridgedOnUnix(String tapIf, String brName)

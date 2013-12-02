@@ -6,9 +6,7 @@
 
 using namespace std;
 
-int bindToBridge(LPWSTR deviceId, BOOL fEnable) {
-
-	LPWSTR lpszInfId = L"ms_bridge";
+int bindToBridge(LPWSTR lpszInfId, LPWSTR deviceId, BOOL fEnable) {
 
 	wstring deviceIdW(deviceId);
 	wstring lpszInfIdW(lpszInfId);
@@ -25,37 +23,41 @@ int __cdecl main() {
 
 	szArglist = CommandLineToArgvW(GetCommandLineW(), &nArgs);
 	if (NULL == szArglist) {
-		wprintf(L"Usage: bindbridge <deviceId> <bind|unbind>\n");
+		wprintf(L"Usage: bindbridge <bridgeId> <deviceId> <bind|unbind>\n");
 		return 1;
 	}
 	
-	if (nArgs != 3) {
-		wprintf(L"Usage: bindbridge <deviceId> <bind|unbind>\n");
+	if (nArgs != 4) {
+		wprintf(L"Usage: bindbridge <bridgeId> <deviceId> <bind|unbind>\n");
 		return 1;
 	}
 
 	BOOL bind;
-	if (lstrcmp(szArglist[2], L"bind") == 0) {
+	LPWSTR bridgeId = szArglist[1];
+	LPWSTR devId = szArglist[2];
+	LPWSTR op = szArglist[3];
+
+	if (lstrcmp(op, L"bind") == 0) {
 		bind = TRUE;
-	} else if (lstrcmp(szArglist[2], L"unbind") == 0) {
+	} else if (lstrcmp(op, L"unbind") == 0) {
 		bind = FALSE;
 	} else {
-		wprintf(L"Usage: bindbridge <deviceId> <bind|unbind>\n");
+		wprintf(L"Usage: bindbridge <bridgeId> <deviceId> <bind|unbind>\n");
 		return 1;
 	}
 
 	if (bind) {
-		wprintf(L"Binding %s to bridge...\n", szArglist[1]);
+		wprintf(L"Binding %s to bridge %s...\n", devId, bridgeId);
 	} else {
-		wprintf(L"Unbinding %s from bridge...\n", szArglist[1]);
+		wprintf(L"Unbinding %s from bridge %s...\n", devId, bridgeId);
 	}
 	
-	int ret = bindToBridge(szArglist[1], bind);
+	int ret = bindToBridge(bridgeId, devId, bind);
 	
 	if (bind) {
-		wprintf(L"Device %s bound to bridge.\n", szArglist[1]);
+		wprintf(L"Device %s bound to bridge %s.\n", devId, bridgeId);
 	} else {
-		wprintf(L"Device %s unbound from bridge.\n", szArglist[1]);
+		wprintf(L"Device %s unbound from bridge %s.\n", devId, bridgeId);
 	}
 
 	LocalFree(szArglist);

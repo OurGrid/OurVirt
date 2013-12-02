@@ -37,8 +37,6 @@ public class VirtualMachineConstants {
 	
 	public static final String BRIDGED_INTERFACE = "bridgedinterface";
 	
-	public static final String SDK_HOME = "sdkhome";
-	
 	public static final Integer DEFAULT_SSH_PORT = 22;
 	
 	public static final String BRIDGED_NET_MODE = "bridged";
@@ -48,4 +46,6 @@ public class VirtualMachineConstants {
 	public static final String USE_MONITOR = "use.monitor";
 
 	public static final String USE_CONSOLE_OUTPUT_FILE = "use.consoleoutputfile";
+
+	public static final String TAP_WINDOWS_DIR = "tapwindows.dir";
 }
