@@ -24,6 +24,7 @@ import org.ourgrid.virt.model.VirtualMachineConstants;
 import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
+import org.ourgrid.virt.strategies.LinuxUtils;
 import org.virtualbox_4_2.AccessMode;
 import org.virtualbox_4_2.CPUPropertyType;
 import org.virtualbox_4_2.CleanupMode;
@@ -747,6 +748,6 @@ public class VBoxSdkStrategy implements HypervisorStrategy {
 	@Override
 	public NetworkStats getNetworkStats(VirtualMachine registeredVM) throws Exception {
 		String ifName = registeredVM.getProperty(VirtualMachineConstants.BRIDGED_INTERFACE);
-		return HypervisorUtils.getNetworkStats(registeredVM, ifName);
+		return LinuxUtils.getNetworkStats(registeredVM, ifName);
 	}
 }

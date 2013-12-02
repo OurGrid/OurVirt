@@ -40,6 +40,8 @@ import org.ourgrid.virt.model.VirtualMachineConstants;
 import org.ourgrid.virt.model.VirtualMachineStatus;
 import org.ourgrid.virt.strategies.HypervisorStrategy;
 import org.ourgrid.virt.strategies.HypervisorUtils;
+import org.ourgrid.virt.strategies.LinuxUtils;
+import org.ourgrid.virt.strategies.SigarUtils;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -534,7 +536,11 @@ public class QEmuStrategy implements HypervisorStrategy {
 		try {
 			String pid = getPid(virtualMachine);
 			if (pid != null) {
-				new ProcessBuilder("/bin/kill", pid).start().waitFor();
+				if (HypervisorUtils.isLinuxHost()) {
+					new ProcessBuilder("/bin/kill", pid).start().waitFor();
+				} else if (HypervisorUtils.isWindowsHost()) {
+					new ProcessBuilder("taskkill /pid " + pid + " /f").start().waitFor();
+				}
 			}
 		} catch (Exception e) {
 			throw e;
@@ -931,9 +937,21 @@ public class QEmuStrategy implements HypervisorStrategy {
 	
 	@Override
 	public CPUStats getCPUStats(VirtualMachine virtualMachine) throws Exception {
-		return HypervisorUtils.getCPUStats(getPid(virtualMachine));
+		if (HypervisorUtils.isWindowsHost()) {
+			return SigarUtils.getCPUStats(getPid(virtualMachine));
+		}
+		return LinuxUtils.getCPUStats(getPid(virtualMachine));
 	}
 
+	@Override
+	public NetworkStats getNetworkStats(VirtualMachine registeredVM) throws Exception {
+		String ifName = getTapName(registeredVM);
+		if (HypervisorUtils.isWindowsHost()) {
+			return SigarUtils.getNetworkStats(registeredVM, ifName);
+		}
+		return LinuxUtils.getNetworkStats(registeredVM, ifName);
+	}
+	
 	@Override
 	public List<DiskStats> getDiskStats(VirtualMachine virtualMachine) throws Exception {
 		
@@ -1008,12 +1026,6 @@ public class QEmuStrategy implements HypervisorStrategy {
 		return IOUtils.toString(new FileInputStream(consoleOutputFile));
 	}
 	
-	@Override
-	public NetworkStats getNetworkStats(VirtualMachine registeredVM) throws Exception {
-		String ifName = getTapName(registeredVM);
-		return HypervisorUtils.getNetworkStats(registeredVM, ifName);
-	}
-
 	private String getTapName(VirtualMachine registeredVM) {
 		return "tap-" + registeredVM.getName();
 	}

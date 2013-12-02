@@ -724,6 +724,6 @@ public class VBoxStrategy implements HypervisorStrategy {
 	@Override
 	public NetworkStats getNetworkStats(VirtualMachine registeredVM) throws Exception {
 		String ifName = registeredVM.getProperty(VirtualMachineConstants.BRIDGED_INTERFACE);
-		return HypervisorUtils.getNetworkStats(registeredVM, ifName);
+		return LinuxUtils.getNetworkStats(registeredVM, ifName);
 	}
 }

@@ -57,6 +57,11 @@
       <version>0.8.1</version>
     </dependency>
     <dependency>
+      <groupId>org.fusesource</groupId>
+      <artifactId>sigar</artifactId>
+      <version>1.6.4</version>
+    </dependency>
+    <dependency>
       <groupId>vboxjxpcom</groupId>
       <artifactId>vboxjxpcom</artifactId>
       <version>1.0</version>
