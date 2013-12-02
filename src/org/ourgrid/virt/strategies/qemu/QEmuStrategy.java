@@ -265,8 +265,10 @@ public class QEmuStrategy implements HypervisorStrategy {
 		}
 
 		String macAddr = virtualMachine.getProperty(VirtualMachineConstants.MAC);
-		strBuilder.append(",macaddr=").append(macAddr)
-			.append(" -net tap,ifname=").append(tapIf).append(",script=no,downscript=no");
+		if (macAddr != null) {
+			strBuilder.append(",macaddr=").append(macAddr);
+		}
+		strBuilder.append(" -net tap,ifname=").append(tapIf).append(",script=no,downscript=no");
 	}
 
 	private synchronized void configureBridgedOnWindows(VirtualMachine vm, String tapIf, String brName) throws Exception {
