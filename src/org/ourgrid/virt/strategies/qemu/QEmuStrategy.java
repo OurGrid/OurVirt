@@ -242,7 +242,12 @@ public class QEmuStrategy implements HypervisorStrategy {
 	}
 	
 	private void execAndWait(String cmd) throws Exception {
-		getProcessBuilder(cmd).start().waitFor();
+		Process process = getProcessBuilder(cmd).start();
+		int exitValue = process.waitFor();
+		String stdOut = IOUtils.toString(process.getInputStream());
+		String stdErr = IOUtils.toString(process.getErrorStream());
+		LOGGER.debug("Cmd: " + cmd + " , exit value: " + exitValue 
+				+ " , stdOut: " + stdOut + " , stdErr:" + stdErr);
 	}
 	
 	private void configureBridged(VirtualMachine virtualMachine,
@@ -253,7 +258,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 		
 		if (HypervisorUtils.isLinuxHost()) {
 			configureBridgedOnUnix(tapIf, brName);
-		} else if (HypervisorUtils.isMacOSHost()) {
+		} else if (HypervisorUtils.isWindowsHost()) {
 			configureBridgedOnWindows(virtualMachine, tapIf, brName);
 		} else {
 			throw new OperationNotSupportedException();
@@ -266,7 +271,7 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	private synchronized void configureBridgedOnWindows(VirtualMachine vm, String tapIf, String brName) throws Exception {
 		String tapDevId = DevConUtils.installTap(vm);
-		execAndWait("rentap.bat " + tapDevId.replace("\\", "\\\\") + " " + tapIf);
+		DevConUtils.renameTap(tapDevId, tapIf);
 		execAndWait("bindbridge " + brName + " " + tapDevId + " bind");
 		vm.setProperty(TAP_WINDOWS_DEV, tapDevId);
 	}
