@@ -721,7 +721,29 @@ public class QEmuStrategy implements HypervisorStrategy {
 
 	@Override
 	public void destroy(VirtualMachine virtualMachine) throws Exception {
-
+		if (status(virtualMachine).equals(VirtualMachineStatus.RUNNING)) {
+			stop(virtualMachine);
+		}
+		
+		try {
+			String snapshotLocation = getSnapshotLocation(virtualMachine, "current");
+			File snapshotFile = new File(snapshotLocation);
+			if (snapshotFile.exists()) {
+				if (!snapshotFile.delete()) {
+					throw new Exception("Cannot delete snapshot from VM.");
+				}
+			}
+			String hda = virtualMachine
+					.getProperty(VirtualMachineConstants.DISK_IMAGE_PATH);
+			File hdaFile = new File(hda);
+			if (hdaFile.exists()) {
+				if (!hdaFile.delete()) {
+					throw new Exception("Cannot delete disk image from VM.");
+				}
+			}
+		} catch (Exception e) {
+			throw e;
+		}
 	}
 
 	@Override
